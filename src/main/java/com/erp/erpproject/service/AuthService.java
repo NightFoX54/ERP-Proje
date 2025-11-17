@@ -2,12 +2,12 @@ package com.erp.erpproject.service;
 
 import java.util.List;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.erp.erpproject.model.Accounts;
 import com.erp.erpproject.repository.AccountsRepository;
 import com.erp.erpproject.repository.BranchesRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 @Service
 public class AuthService {
     private final AccountsRepository accountsRepository;
@@ -30,7 +30,7 @@ public class AuthService {
         if (accountsRepository.existsByUsername(username)) {
             throw new RuntimeException("Username already exists");
         }
-        if (branchesRepository.findById(branchId).isEmpty()) {
+        if (branchesRepository.findById(branchId).isEmpty() && !branchId.equals("0")) {
             throw new RuntimeException("Branch not found");
         }
         Accounts account = new Accounts();
