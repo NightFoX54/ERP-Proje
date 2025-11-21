@@ -13,4 +13,5 @@ public interface ProductCategoriesRepository extends MongoRepository<ProductCate
     List<ProductCategories> findAll();
     Optional<ProductCategories> findByName(String name);
     boolean existsByName(String name);
+    List<ProductCategories> findAllByBranchId(String branchId);
 }

@@ -89,8 +89,11 @@ public class StockService {
         }
         return productCategoriesRepository.save(productCategory);
     }
-    public List<ProductCategories> getProductCategories() {
-        return productCategoriesRepository.findAll();
+    public List<ProductCategories> getProductCategories(String branchId) {
+        if (branchesRepository.findById(branchId).isEmpty()) {
+            throw new RuntimeException("Branch not found");
+        }
+        return productCategoriesRepository.findAllByBranchId(branchId);
     }
     public ProductType createProductType(ProductType productType) {
         return productTypeRepository.save(productType);

@@ -46,7 +46,7 @@ public class StockController {
     public ProductCategoryDto getProductCategoryById(@PathVariable String id) {
         return stockService.getProductCategoryById(id);
     }
-    @GetMapping("/product-categories")
+    @GetMapping("/product-categories/{id}/branch")
     public List<ProductCategories> getProductCategories() {
         return stockService.getProductCategories();
     }
