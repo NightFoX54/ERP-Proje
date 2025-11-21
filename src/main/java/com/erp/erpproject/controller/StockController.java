@@ -47,8 +47,8 @@ public class StockController {
         return stockService.getProductCategoryById(id);
     }
     @GetMapping("/product-categories/{id}/branch")
-    public List<ProductCategories> getProductCategories() {
-        return stockService.getProductCategories();
+    public List<ProductCategories> getProductCategories(@PathVariable String id) {
+        return stockService.getProductCategories(id);
     }
     @PostMapping("/product-categories")
     public ResponseEntity<ProductCategories> createProductCategory(@RequestBody ProductCategories productCategory) {
