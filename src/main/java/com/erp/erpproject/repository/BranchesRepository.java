@@ -11,4 +11,5 @@ public interface BranchesRepository extends MongoRepository<Branches, String> {
     Optional<Branches> findByName(String name);
     boolean existsByName(String name);
     List<Branches> findAll();
+    List<Branches> findAllByIsStockEnabledTrue();
 }

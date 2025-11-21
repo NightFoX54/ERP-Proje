@@ -16,5 +16,6 @@ public class Product {
     private Double length;
     private Double purchasePrice;
     private Integer stock;
+    private Integer diameter;
     private Map<String, Object> fields;
 }

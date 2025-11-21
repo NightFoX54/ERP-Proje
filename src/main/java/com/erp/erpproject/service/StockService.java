@@ -2,15 +2,19 @@ package com.erp.erpproject.service;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.erp.erpproject.dto.ProductCategoryDto;
 import com.erp.erpproject.model.Product;
 import com.erp.erpproject.model.ProductCategories;
+import com.erp.erpproject.model.ProductType;
 import com.erp.erpproject.repository.BranchesRepository;
 import com.erp.erpproject.repository.ProductCategoriesRepository;
 import com.erp.erpproject.repository.ProductRepository;
 import com.erp.erpproject.repository.ProductTypeRepository;
+import com.erp.erpproject.util.SecurityUtil;
 
 @Service
 public class StockService {
@@ -27,15 +31,20 @@ public class StockService {
     public List<Product> getProducts() {
         return productRepository.findAll();
     }
-    public Product createProduct(Product product) {
-        if (productCategoriesRepository.findById(product.getProductCategoryId()).isEmpty()) {
-            throw new RuntimeException("Product category not found");
+    public ResponseEntity<Product> createProduct(Product product) {
+        ProductCategories productCategory = productCategoriesRepository.findById(product.getProductCategoryId()).get();
+        if (!productCategory.getBranchId().equals(SecurityUtil.getCurrentBranchId()) && !SecurityUtil.isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
-        return productRepository.save(product);
+        return ResponseEntity.ok().body(productRepository.save(product));
     }
-    public Product updateProduct(String id, Product product) {
+    public ResponseEntity<Product> updateProduct(String id, Product product) {
         if (productRepository.findById(id).isEmpty()) {
-            throw new RuntimeException("Product not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+        ProductCategories productCategory = productCategoriesRepository.findById(product.getProductCategoryId()).get();
+        if (!productCategory.getBranchId().equals(SecurityUtil.getCurrentBranchId()) && !SecurityUtil.isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
         Product existingProduct = productRepository.findById(id).get();
         existingProduct.setProductCategoryId(product.getProductCategoryId());
@@ -44,13 +53,18 @@ public class StockService {
         existingProduct.setPurchasePrice(product.getPurchasePrice());
         existingProduct.setStock(product.getStock());
         existingProduct.setFields(product.getFields());
-        return productRepository.save(existingProduct);
+        return ResponseEntity.ok().body(productRepository.save(existingProduct));
     }
-    public void deleteProduct(String id) {
+    public ResponseEntity<Void> deleteProduct(String id) {
         if (productRepository.findById(id).isEmpty()) {
-            throw new RuntimeException("Product not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+        ProductCategories productCategory = productCategoriesRepository.findById(productRepository.findById(id).get().getProductCategoryId()).get();
+        if (!productCategory.getBranchId().equals(SecurityUtil.getCurrentBranchId()) && !SecurityUtil.isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
         productRepository.deleteById(id);
+        return ResponseEntity.ok().build();
     }
     public List<Product> getProductsByProductCategoryId(String productCategoryId) {
         if (productCategoriesRepository.findById(productCategoryId).isEmpty()) {
@@ -78,5 +92,7 @@ public class StockService {
     public List<ProductCategories> getProductCategories() {
         return productCategoriesRepository.findAll();
     }
-    
+    public ProductType createProductType(ProductType productType) {
+        return productTypeRepository.save(productType);
+    }
 }

@@ -14,7 +14,7 @@ public class BranchService {
         this.branchesRepository = branchesRepository;
     }
     public List<Branches> getBranches() {
-        return branchesRepository.findAll();
+        return branchesRepository.findAllByIsStockEnabledTrue();
     }
     public Branches createBranch(String name) {
         if (branchesRepository.existsByName(name)) {
@@ -22,6 +22,7 @@ public class BranchService {
         }
         Branches branch = new Branches();
         branch.setName(name);
+        branch.setStockEnabled(true);
         return branchesRepository.save(branch);
     }
     public void deleteBranch(String id) {
