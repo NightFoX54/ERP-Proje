@@ -98,4 +98,7 @@ public class StockService {
     public ProductType createProductType(ProductType productType) {
         return productTypeRepository.save(productType);
     }
+    public List<ProductType> getAllProductTypes() {
+        return productTypeRepository.findAll();
+    }
 }

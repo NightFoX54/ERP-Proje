@@ -61,4 +61,8 @@ public class StockController {
     public ProductType createProductType(@RequestBody ProductType productType) {
         return stockService.createProductType(productType);
     }
+    @GetMapping("/product-types")
+    public List<ProductType> getAllProductTypes() {
+        return stockService.getAllProductTypes();
+    }
 }

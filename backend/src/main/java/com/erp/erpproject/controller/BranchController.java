@@ -26,9 +26,6 @@ public class BranchController {
 
     @GetMapping
     public ResponseEntity<List<Branches>> getBranches() {
-        if (!SecurityUtil.isAdmin()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
         return ResponseEntity.ok(branchService.getBranches());
     }
     
