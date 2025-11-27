@@ -12,6 +12,7 @@ export const orderService = {
   // Belirli bir siparişi çek
   getOrderById: async (id) => {
     const response = await api.get(`/api/orders/${id}`);
+    console.log(response.data);
     return response.data;
   },
 

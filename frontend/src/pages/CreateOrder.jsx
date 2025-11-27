@@ -8,6 +8,7 @@ import { orderService } from '../services/orderService';
 import { toast } from 'react-toastify';
 import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiArrowLeft } from 'react-icons/fi';
 import Loading from '../components/Loading';
+import ProductOrderModal from '../components/ProductOrderModal';
 
 const CreateOrder = () => {
   const { user } = useAuth();
@@ -17,13 +18,22 @@ const CreateOrder = () => {
   const [selectedBranch, setSelectedBranch] = useState('');
   const [productCategories, setProductCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoryDetails, setCategoryDetails] = useState(null);
   const [categoryProducts, setCategoryProducts] = useState([]);
+  const [productTypes, setProductTypes] = useState([]);
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [totalPrice, setTotalPrice] = useState(0);
+  const [customerName, setCustomerName] = useState('');
+  
+  // Product Order Modal state
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
     fetchData();
+    fetchProductTypes();
   }, []);
 
   useEffect(() => {
@@ -65,9 +75,19 @@ const CreateOrder = () => {
     }
   };
 
+  const fetchProductTypes = async () => {
+    try {
+      const data = await stockService.getProductTypes();
+      setProductTypes(data || []);
+    } catch (error) {
+      console.error('Error fetching product types:', error);
+    }
+  };
+
   const fetchCategoryProducts = async () => {
     try {
       const data = await stockService.getProductCategoryById(selectedCategory);
+      setCategoryDetails(data.productCategories);
       setCategoryProducts(data.products || []);
     } catch (error) {
       console.error('Error fetching category products:', error);
@@ -76,9 +96,17 @@ const CreateOrder = () => {
   };
 
   const handleBranchChange = async (branchId) => {
+    // Eğer sepet doluysa ve farklı bir şube seçiliyorsa uyarı ver
+    if (cart.length > 0) {
+      if (!window.confirm('Şube değiştirildiğinde sepet temizlenecektir. Devam etmek istiyor musunuz?')) {
+        return;
+      }
+    }
+    
     setSelectedBranch(branchId);
     setSelectedCategory(null);
     setCategoryProducts([]);
+    setCart([]); // Sepeti temizle
     await fetchProductCategories(branchId);
   };
 
@@ -86,43 +114,114 @@ const CreateOrder = () => {
     setSelectedCategory(categoryId);
   };
 
+  const getProductTypeName = (category) => {
+    if (!category || !category.productTypeId) return null;
+    const productType = productTypes.find(pt => pt.id === category.productTypeId);
+    return productType?.name || null;
+  };
+
   const addToCart = (product) => {
-    const existingItem = cart.find(item => item.productId === product.id);
-    
-    if (existingItem) {
-      setCart(cart.map(item =>
-        item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCart([...cart, {
-        productId: product.id,
-        productName: `${product.diameter || ''}mm - ${product.length || ''}m`,
-        quantity: 1,
-        unitPrice: product.purchasePrice || 0,
-        product: product,
-      }]);
+    // Sepette ürün varsa, mevcut ürünlerin şubesini kontrol et
+    if (cart.length > 0) {
+      // Sepetteki ilk ürünün branchId'sini al (cart item'ında branchId saklıyoruz)
+      const firstItemBranchId = cart[0].branchId;
+      
+      // Eğer farklı bir şubeden ürün eklenmeye çalışılıyorsa uyarı ver
+      if (firstItemBranchId && selectedBranch !== firstItemBranchId) {
+        toast.error('Sepette farklı şubeden ürünler var. Önce sepeti temizleyin veya aynı şubeden ürün ekleyin.');
+        return;
+      }
     }
+    
+    const productTypeName = getProductTypeName(categoryDetails);
+    
+    // Eğer ürün tipi "dolu" ise detaylı modal aç
+    if (productTypeName && productTypeName.toLowerCase() === 'dolu') {
+      setSelectedProduct(product);
+      setShowProductModal(true);
+      return;
+    }
+    
+    // "boru" veya diğer tipler için direkt sepete ekle
+    addProductToCartDirectly(product, 1);
+  };
+
+  const addProductToCartDirectly = (product, quantity) => {
+    // Boru tipi için direkt sepete ekleme
+    const orderItem = {
+      productCategoryId: categoryDetails?.id || '',
+      diameter: product.diameter || 0,
+      length: product.length || null,
+      weight: product.weight || null,
+      quantity: quantity,
+      wastageLength: 0,
+      wastageWeight: 0,
+    };
+
+    // Extra fields varsa ekle
+    if (product.fields) {
+      Object.entries(product.fields).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          orderItem[key] = value;
+        }
+      });
+    }
+
+    setCart([...cart, {
+      orderItem: orderItem,
+      productName: `${product.diameter || ''}mm - ${product.length || ''}mm`,
+      quantity: quantity,
+      branchId: selectedBranch, // Şube ID'sini sakla
+    }]);
     
     toast.success('Ürün sepete eklendi');
   };
 
-  const updateCartQuantity = (productId, change) => {
-    setCart(cart.map(item => {
-      if (item.productId === productId) {
+  const handleProductModalConfirm = (orderItem) => {
+    // Sepette ürün varsa, mevcut ürünlerin şubesini kontrol et
+    if (cart.length > 0) {
+      const firstItemBranchId = cart[0].branchId;
+      
+      // Eğer farklı bir şubeden ürün eklenmeye çalışılıyorsa uyarı ver
+      if (firstItemBranchId && selectedBranch !== firstItemBranchId) {
+        toast.error('Sepette farklı şubeden ürünler var. Önce sepeti temizleyin veya aynı şubeden ürün ekleyin.');
+        setShowProductModal(false);
+        setSelectedProduct(null);
+        return;
+      }
+    }
+    
+    setCart([...cart, {
+      orderItem: orderItem,
+      productName: `${orderItem.diameter || ''}mm - ${orderItem.length ? orderItem.length + 'mm' : orderItem.weight ? orderItem.weight + 'kg' : ''}`,
+      quantity: orderItem.quantity,
+      branchId: selectedBranch, // Şube ID'sini sakla
+    }]);
+    
+    setShowProductModal(false);
+    setSelectedProduct(null);
+    toast.success('Ürün sepete eklendi');
+  };
+
+  const updateCartQuantity = (index, change) => {
+    setCart(cart.map((item, idx) => {
+      if (idx === index) {
         const newQuantity = item.quantity + change;
         if (newQuantity <= 0) {
           return null;
         }
-        return { ...item, quantity: newQuantity };
+        const updatedItem = { ...item, quantity: newQuantity };
+        if (updatedItem.orderItem) {
+          updatedItem.orderItem.quantity = newQuantity;
+        }
+        return updatedItem;
       }
       return item;
     }).filter(Boolean));
   };
 
-  const removeFromCart = (productId) => {
-    setCart(cart.filter(item => item.productId !== productId));
+  const removeFromCart = (index) => {
+    setCart(cart.filter((_, idx) => idx !== index));
     toast.success('Ürün sepetten çıkarıldı');
   };
 
@@ -142,25 +241,41 @@ const CreateOrder = () => {
     try {
       setSubmitting(true);
       
+      if (!customerName || customerName.trim() === '') {
+        toast.error('Lütfen müşteri firma ismini giriniz');
+        return;
+      }
+
+      if (!totalPrice || totalPrice <= 0) {
+        toast.error('Lütfen toplam fiyatı giriniz');
+        return;
+      }
+
+      // Toplam fire hesapla (her zaman 0 olacak çünkü sipariş oluştururken girilmiyor)
+      const totalWastageLength = 0;
+      const totalWastageWeight = 0;
+
       const orderData = {
-        fromBranchId: user?.branchId,
-        toBranchId: selectedBranch,
-        items: cart.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-        })),
-        status: 'PENDING',
+        customerName: customerName.trim(),
+        orderGivenBranchId: user?.branchId,
+        orderDeliveryBranchId: selectedBranch,
+        orderGivenDate: new Date().toISOString(),
+        orderDeliveryDate: null,
+        orderStatus: 'Oluşturuldu',
+        orderItems: cart.map(item => item.orderItem),
+        totalPrice: parseFloat(totalPrice),
+        totalWastageWeight: totalWastageWeight,
+        totalWastageLength: totalWastageLength,
       };
 
-      // TODO: Backend endpoint hazır olduğunda açılacak
-      // await orderService.createOrder(orderData);
+      await orderService.createOrder(orderData);
       
       toast.success('Sipariş başarıyla oluşturuldu!');
       
-      // Sepeti temizle
-      orderService.clearCart();
+      // Formu temizle
       setCart([]);
+      setCustomerName('');
+      setTotalPrice(0);
       
       // Siparişler sayfasına yönlendir
       navigate('/orders');
@@ -172,9 +287,6 @@ const CreateOrder = () => {
     }
   };
 
-  const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + (item.quantity * item.unitPrice), 0);
-  };
 
   if (loading) {
     return (
@@ -206,6 +318,21 @@ const CreateOrder = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Product Selection */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Customer Name */}
+            <div className="card">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Müşteri Firma İsmi <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="input-field"
+                placeholder="Örn: ABC İnşaat Ltd. Şti."
+                required
+              />
+            </div>
+
             {/* Branch Selection */}
             <div className="card">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -279,7 +406,7 @@ const CreateOrder = () => {
                               {product.diameter ? `${product.diameter}mm` : ''} - {product.length ? `${product.length}m` : ''}
                             </p>
                             <p className="text-sm text-gray-600">
-                              Ağırlık: {product.weight}kg | Stok: <span className="font-semibold text-green-600">{product.stock}</span> | Fiyat: <span className="font-semibold text-primary-600">{product.purchasePrice?.toFixed(2) || '0.00'} ₺</span>
+                              Ağırlık: {product.weight}kg | Stok: <span className="font-semibold text-green-600">{product.stock}</span>
                             </p>
                           </div>
                           <button
@@ -315,17 +442,26 @@ const CreateOrder = () => {
               ) : (
                 <>
                   <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
-                    {cart.map((item) => (
+                    {cart.map((item, index) => (
                       <div
-                        key={item.productId}
+                        key={index}
                         className="p-4 border-2 border-gray-200 rounded-xl hover:border-primary-300 transition-all duration-200 bg-gray-50/50 hover:bg-white"
                       >
                         <div className="flex justify-between items-start mb-3">
-                          <p className="text-sm font-semibold text-gray-900 flex-1">
-                            {item.productName}
-                          </p>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {item.productName}
+                            </p>
+                            {item.orderItem && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {item.orderItem.diameter && `Çap: ${item.orderItem.diameter}mm`}
+                                {item.orderItem.length && ` | Uzunluk: ${item.orderItem.length}mm`}
+                                {item.orderItem.weight && ` | Ağırlık: ${item.orderItem.weight}kg`}
+                              </div>
+                            )}
+                          </div>
                           <button
-                            onClick={() => removeFromCart(item.productId)}
+                            onClick={() => removeFromCart(index)}
                             className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all ml-2"
                             title="Sepetten Çıkar"
                           >
@@ -335,7 +471,7 @@ const CreateOrder = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => updateCartQuantity(item.productId, -1)}
+                              onClick={() => updateCartQuantity(index, -1)}
                               className="p-1.5 rounded-lg border-2 border-gray-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
                             >
                               <FiMinus className="text-xs" />
@@ -344,26 +480,32 @@ const CreateOrder = () => {
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => updateCartQuantity(item.productId, 1)}
+                              onClick={() => updateCartQuantity(index, 1)}
                               className="p-1.5 rounded-lg border-2 border-gray-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
                             >
                               <FiPlus className="text-xs" />
                             </button>
                           </div>
-                          <p className="text-sm font-bold text-primary-700">
-                            {(item.quantity * item.unitPrice).toFixed(2)} ₺
-                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
 
                   <div className="border-t pt-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-lg font-semibold text-gray-900">Toplam:</span>
-                      <span className="text-xl font-bold text-primary-700">
-                        {getTotalPrice().toFixed(2)} ₺
-                      </span>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Toplam Fiyat (₺) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={totalPrice}
+                        onChange={(e) => setTotalPrice(e.target.value)}
+                        className="input-field w-full text-lg font-bold"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        required
+                      />
                     </div>
 
                     <button
@@ -379,6 +521,20 @@ const CreateOrder = () => {
             </div>
           </div>
         </div>
+
+        {/* Product Order Modal */}
+        {showProductModal && selectedProduct && categoryDetails && (
+          <ProductOrderModal
+            isOpen={showProductModal}
+            onClose={() => {
+              setShowProductModal(false);
+              setSelectedProduct(null);
+            }}
+            onConfirm={handleProductModalConfirm}
+            product={selectedProduct}
+            category={categoryDetails}
+          />
+        )}
       </div>
     </Layout>
   );

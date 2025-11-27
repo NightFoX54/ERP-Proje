@@ -33,11 +33,8 @@ const Orders = () => {
       setBranches(branchesData || []);
 
       // Siparişleri çek
-      // TODO: Backend endpoint hazır olduğunda açılacak
-      // const ordersData = await orderService.getOrders();
-      // setOrders(ordersData || []);
-      
-      setOrders([]); // Placeholder
+      const ordersData = await orderService.getOrders();
+      setOrders(ordersData || []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -48,9 +45,9 @@ const Orders = () => {
 
   const filterOrders = () => {
     if (filter === 'my-orders') {
-      setFilteredOrders(orders.filter(order => order.fromBranchId === user?.branchId));
+      setFilteredOrders(orders.filter(order => order.orderGivenBranchId === user?.branchId));
     } else if (filter === 'related-orders') {
-      setFilteredOrders(orders.filter(order => order.toBranchId === user?.branchId));
+      setFilteredOrders(orders.filter(order => order.orderDeliveryBranchId === user?.branchId));
     } else {
       setFilteredOrders(orders);
     }
@@ -64,14 +61,14 @@ const Orders = () => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      'PENDING': { bg: 'bg-gradient-to-r from-yellow-100 to-yellow-50', text: 'text-yellow-800', label: 'Bekliyor', border: 'border-yellow-300' },
-      'STOCK_AVAILABLE': { bg: 'bg-gradient-to-r from-blue-100 to-blue-50', text: 'text-blue-800', label: 'Stokta Mevcut', border: 'border-blue-300' },
-      'READY': { bg: 'bg-gradient-to-r from-green-100 to-green-50', text: 'text-green-800', label: 'Hazır', border: 'border-green-300' },
-      'SHIPPED': { bg: 'bg-gradient-to-r from-purple-100 to-purple-50', text: 'text-purple-800', label: 'Çıktı', border: 'border-purple-300' },
-      'CANCELLED': { bg: 'bg-gradient-to-r from-red-100 to-red-50', text: 'text-red-800', label: 'İptal', border: 'border-red-300' },
+      'Oluşturuldu': { bg: 'bg-gradient-to-r from-yellow-100 to-yellow-50', text: 'text-yellow-800', label: 'Oluşturuldu', border: 'border-yellow-300' },
+      'Onaylandı': { bg: 'bg-gradient-to-r from-blue-100 to-blue-50', text: 'text-blue-800', label: 'Onaylandı', border: 'border-blue-300' },
+      'Hazır': { bg: 'bg-gradient-to-r from-green-100 to-green-50', text: 'text-green-800', label: 'Hazır', border: 'border-green-300' },
+      'Çıktı': { bg: 'bg-gradient-to-r from-purple-100 to-purple-50', text: 'text-purple-800', label: 'Çıktı', border: 'border-purple-300' },
+      'İptal_Edildi': { bg: 'bg-gradient-to-r from-red-100 to-red-50', text: 'text-red-800', label: 'İptal Edildi', border: 'border-red-300' },
     };
 
-    const config = statusConfig[status] || statusConfig['PENDING'];
+    const config = statusConfig[status] || statusConfig['Oluşturuldu'];
 
     return (
       <span className={`px-3 py-1.5 text-xs font-bold rounded-full border ${config.bg} ${config.text} ${config.border} shadow-sm`}>
@@ -187,16 +184,16 @@ const Orders = () => {
                         #{order.orderNumber || order.id.slice(-8)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getBranchName(order.fromBranchId)}
+                        {getBranchName(order.orderGivenBranchId)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getBranchName(order.toBranchId)}
+                        {getBranchName(order.orderDeliveryBranchId)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(order.status)}
+                        {getStatusBadge(order.orderStatus)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                        {order.orderGivenDate ? new Date(order.orderGivenDate).toLocaleDateString('tr-TR') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <Link

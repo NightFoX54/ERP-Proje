@@ -2,6 +2,7 @@ C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpp
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\config\SecurityConfig.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\controller\AuthController.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\controller\BranchController.java
+C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\controller\OrderController.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\controller\StockController.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\BranchRequestDto.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\LoginRegisterResponseDto.java
@@ -11,11 +12,13 @@ C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpp
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\ErpprojectApplication.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\model\Accounts.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\model\Branches.java
+C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\model\Orders.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\model\Product.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\model\ProductCategories.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\model\ProductType.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\repository\AccountsRepository.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\repository\BranchesRepository.java
+C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\repository\OrdersRepository.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\repository\ProductCategoriesRepository.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\repository\ProductRepository.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\repository\ProductTypeRepository.java
@@ -24,5 +27,6 @@ C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpp
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\service\AuthService.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\service\BranchService.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\service\JwtService.java
+C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\service\OrderService.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\service\StockService.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\util\SecurityUtil.java
