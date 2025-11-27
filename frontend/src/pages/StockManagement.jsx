@@ -8,7 +8,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiPackage, FiChevronRight } from 'react-icon
 import Loading from '../components/Loading';
 import ProductModal from '../components/ProductModal';
 import ProductCategoryModal from '../components/ProductCategoryModal';
-import { filterFixedFields, translateFieldName } from '../utils/fieldTranslations';
+import { filterFixedFields, translateFieldName, getFieldType } from '../utils/fieldTranslations';
 
 const StockManagement = () => {
   const { user, isAdmin, canManageStock } = useAuth();
@@ -328,7 +328,7 @@ const StockManagement = () => {
                                   {product.diameter || '-'} mm
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {product.length || '-'} m
+                                  {product.length || '-'} mm
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                   {product.weight || '-'} kg
@@ -349,22 +349,23 @@ const StockManagement = () => {
                                 </td>
                                 {/* Ekstra alanların değerlerini göster */}
                                 {extraFieldKeys.map((fieldKey) => {
-                                  const fieldValue = product.fields?.[fieldKey];
-                                  const fieldType = extraFields[fieldKey];
+                                  const productFieldValue = product.fields?.[fieldKey];
+                                  const fieldData = extraFields[fieldKey];
+                                  const fieldType = getFieldType(fieldData);
                                   
                                   // Değeri formatla
                                   let displayValue = '-';
-                                  if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+                                  if (productFieldValue !== undefined && productFieldValue !== null && productFieldValue !== '') {
                                     if (fieldType === 'double') {
-                                      displayValue = typeof fieldValue === 'number' 
-                                        ? fieldValue.toFixed(2) 
-                                        : parseFloat(fieldValue).toFixed(2);
+                                      displayValue = typeof productFieldValue === 'number' 
+                                        ? productFieldValue.toFixed(2) 
+                                        : parseFloat(productFieldValue).toFixed(2);
                                     } else if (fieldType === 'integer') {
-                                      displayValue = typeof fieldValue === 'number' 
-                                        ? fieldValue.toString() 
-                                        : parseInt(fieldValue).toString();
+                                      displayValue = typeof productFieldValue === 'number' 
+                                        ? productFieldValue.toString() 
+                                        : parseInt(productFieldValue).toString();
                                     } else {
-                                      displayValue = String(fieldValue);
+                                      displayValue = String(productFieldValue);
                                     }
                                   }
 

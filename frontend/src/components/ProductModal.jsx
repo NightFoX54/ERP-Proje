@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
 import { FiX } from 'react-icons/fi';
-import { filterFixedFields, translateFieldName } from '../utils/fieldTranslations';
+import { filterFixedFields, translateFieldName, getFieldType, isFieldRequired } from '../utils/fieldTranslations';
 
 const ProductModal = ({ category, product, onClose, onSave }) => {
   const isEdit = !!product;
@@ -86,7 +86,8 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
     });
   };
 
-  const getFieldType = (type) => {
+  const getInputType = (fieldValue) => {
+    const type = getFieldType(fieldValue);
     switch (type) {
       case 'integer':
         return 'number';
@@ -115,8 +116,9 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Required Fields */}
+          {/* All Fields - Sabit alanlar ve extra fields birlikte */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Sabit Alanlar */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Çap (mm) <span className="text-red-500">*</span>
@@ -133,7 +135,7 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Uzunluk (m) <span className="text-red-500">*</span>
+                Uzunluk (mm) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -187,32 +189,34 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
                 min="0"
               />
             </div>
-          </div>
 
-          {/* Extra Fields from Category - Sabit alanları hariç tut */}
-          {category?.finalFields && Object.keys(filterFixedFields(category.finalFields)).length > 0 && (
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Ekstra Özellikler</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(category.finalFields)
-                  .filter(([key]) => !['weight', 'purchasePrice', 'diameter', 'length', 'stock'].includes(key))
-                  .map(([key, type]) => (
+            {/* Extra Fields from Category - Sabit alanları hariç tut */}
+            {category?.finalFields && Object.keys(filterFixedFields(category.finalFields)).length > 0 && 
+              Object.entries(category.finalFields)
+                .filter(([key]) => !['weight', 'purchasePrice', 'diameter', 'length', 'stock'].includes(key))
+                .map(([key, fieldValue]) => {
+                  const fieldType = getFieldType(fieldValue);
+                  const required = isFieldRequired(fieldValue);
+                  
+                  return (
                     <div key={key}>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {translateFieldName(key)}
+                        {required && <span className="text-red-500 ml-1">*</span>}
                       </label>
                       <input
-                        type={getFieldType(type)}
+                        type={getInputType(fieldValue)}
                         value={extraFields[key] || ''}
                         onChange={(e) => handleExtraFieldChange(key, e.target.value)}
                         className="input-field"
-                        step={type === 'double' ? '0.01' : '1'}
+                        step={fieldType === 'double' ? '0.01' : '1'}
+                        required={required}
                       />
                     </div>
-                  ))}
-              </div>
-            </div>
-          )}
+                  );
+                })
+            }
+          </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button

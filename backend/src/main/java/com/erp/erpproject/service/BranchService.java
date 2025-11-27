@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.erp.erpproject.dto.BranchRequestDto;
 import com.erp.erpproject.model.Branches;
 import com.erp.erpproject.repository.BranchesRepository;
 
@@ -14,15 +15,15 @@ public class BranchService {
         this.branchesRepository = branchesRepository;
     }
     public List<Branches> getBranches() {
-        return branchesRepository.findAllByIsStockEnabledTrue();
+        return branchesRepository.findAll();
     }
-    public Branches createBranch(String name) {
-        if (branchesRepository.existsByName(name)) {
+    public Branches createBranch(BranchRequestDto request) {
+        if (branchesRepository.existsByName(request.getName())) {
             throw new RuntimeException("Branch already exists");
         }
         Branches branch = new Branches();
-        branch.setName(name);
-        branch.setStockEnabled(true);
+        branch.setName(request.getName());
+        branch.setStockEnabled(request.getIsStockEnabled());
         return branchesRepository.save(branch);
     }
     public void deleteBranch(String id) {
@@ -30,5 +31,16 @@ public class BranchService {
             throw new RuntimeException("Branch not found");
         }
         branchesRepository.deleteById(id);
+    }
+    public void updateBranchStockEnabled(String id, Boolean isStockEnabled) {
+        if (!branchesRepository.existsById(id)) {
+            throw new RuntimeException("Branch not found");
+        }
+        Branches branch = branchesRepository.findById(id).orElseThrow(() -> new RuntimeException("Branch not found"));
+        branch.setStockEnabled(isStockEnabled);
+        branchesRepository.save(branch);
+    }
+    public List<Branches> getBranchesByStockEnabled() {
+        return branchesRepository.findAllByIsStockEnabledTrue();
     }
 }

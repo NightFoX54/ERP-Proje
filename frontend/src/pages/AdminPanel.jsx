@@ -14,7 +14,7 @@ const AdminPanel = () => {
   // Branches state
   const [branches, setBranches] = useState([]);
   const [showBranchModal, setShowBranchModal] = useState(false);
-  const [branchForm, setBranchForm] = useState({ name: '', isStockEnabled: true });
+  const [branchForm, setBranchForm] = useState({ name: '', stockEnabled: true });
   const [loadingBranches, setLoadingBranches] = useState(true);
 
   // Users state
@@ -77,14 +77,26 @@ const AdminPanel = () => {
   const handleCreateBranch = async (e) => {
     e.preventDefault();
     try {
-      await branchService.createBranch(branchForm.name);
+      await branchService.createBranch(branchForm.name, branchForm.stockEnabled);
       toast.success('Şube başarıyla oluşturuldu');
       setShowBranchModal(false);
-      setBranchForm({ name: '', isStockEnabled: true });
+      setBranchForm({ name: '', stockEnabled: true });
       fetchBranches();
     } catch (error) {
       console.error('Error creating branch:', error);
       toast.error('Şube oluşturulurken bir hata oluştu');
+    }
+  };
+
+  const handleToggleStockEnabled = async (branchId, currentStatus) => {
+    try {
+      const newStatus = !currentStatus;
+      await branchService.updateBranchStockEnabled(branchId, newStatus);
+      toast.success(`Şube stok durumu ${newStatus ? 'aktif' : 'pasif'} olarak güncellendi`);
+      fetchBranches();
+    } catch (error) {
+      console.error('Error updating branch stock status:', error);
+      toast.error('Stok durumu güncellenirken bir hata oluştu');
     }
   };
 
@@ -207,15 +219,16 @@ const AdminPanel = () => {
                               {branch.name}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-3 py-1.5 text-xs font-bold rounded-full border shadow-sm ${
-                                  branch.isStockEnabled
-                                    ? 'bg-gradient-to-r from-green-100 to-green-50 text-green-800 border-green-300'
-                                    : 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 border-gray-300'
+                              <button
+                                onClick={() => handleToggleStockEnabled(branch.id, branch.stockEnabled)}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-full border shadow-sm transition-all duration-200 hover:scale-105 cursor-pointer ${
+                                  branch.stockEnabled
+                                    ? 'bg-gradient-to-r from-green-100 to-green-50 text-green-800 border-green-300 hover:from-green-200 hover:to-green-100'
+                                    : 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 border-gray-300 hover:from-gray-200 hover:to-gray-100'
                                 }`}
                               >
                                 {branch.stockEnabled ? 'Aktif' : 'Pasif'}
-                              </span>
+                              </button>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
@@ -324,12 +337,28 @@ const AdminPanel = () => {
                     required
                   />
                 </div>
+                <div className="mb-4">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={branchForm.stockEnabled}
+                      onChange={(e) => setBranchForm({ ...branchForm, stockEnabled: e.target.checked })}
+                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Stok Yönetimi Aktif
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                    Bu şube için stok yönetimi aktif olacak mı?
+                  </p>
+                </div>
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
                     onClick={() => {
                       setShowBranchModal(false);
-                      setBranchForm({ name: '', isStockEnabled: true });
+                      setBranchForm({ name: '', stockEnabled: true });
                     }}
                     className="btn-secondary"
                   >

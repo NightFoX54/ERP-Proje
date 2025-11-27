@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
   const [fieldName, setFieldName] = useState('');
   const [fieldType, setFieldType] = useState('string');
+  const [isRequired, setIsRequired] = useState(false);
   const [errors, setErrors] = useState({});
 
   const validate = () => {
@@ -12,8 +13,12 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
     
     if (!fieldName || fieldName.trim() === '') {
       newErrors.fieldName = 'Alan adı gereklidir';
-    } else if (existingFields[fieldName]) {
-      newErrors.fieldName = 'Bu alan adı zaten mevcut';
+    } else {
+      // existingFields artık { fieldName: { datatype, required } } formatında olabilir
+      const fieldKey = fieldName.trim();
+      if (existingFields[fieldKey]) {
+        newErrors.fieldName = 'Bu alan adı zaten mevcut';
+      }
     }
 
     setErrors(newErrors);
@@ -30,11 +35,13 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
     onSave({
       name: fieldName.trim(),
       type: fieldType,
+      required: isRequired,
     });
     
     // Formu temizle
     setFieldName('');
     setFieldType('string');
+    setIsRequired(false);
     setErrors({});
     onClose();
   };
@@ -42,6 +49,7 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
   const handleClose = () => {
     setFieldName('');
     setFieldType('string');
+    setIsRequired(false);
     setErrors({});
     onClose();
   };
@@ -97,6 +105,23 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
               {fieldType === 'string' && 'Metin verileri için kullanılır (örn: açıklama, not)'}
               {fieldType === 'integer' && 'Tam sayı değerler için kullanılır (örn: adet, miktar)'}
               {fieldType === 'double' && 'Ondalıklı sayılar için kullanılır (örn: fiyat, ölçü)'}
+            </p>
+          </div>
+
+          <div>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRequired}
+                onChange={(e) => setIsRequired(e.target.checked)}
+                className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Zorunlu
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Bu alan ürün oluştururken zorunlu olacak mı?
             </p>
           </div>
 

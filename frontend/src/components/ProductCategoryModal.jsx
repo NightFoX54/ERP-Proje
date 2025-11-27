@@ -58,9 +58,24 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
     try {
       setLoading(true);
 
-      // Required fields ve extra fields'ı birleştir (sabit alanları hariç tut)
+      // Required fields'ı yeni formata çevir (sabit alanları hariç tut)
       const filteredRequiredFields = filterFixedFields(requiredFields);
-      const allFields = { ...filteredRequiredFields, ...extraFields };
+      const formattedRequiredFields = {};
+      Object.entries(filteredRequiredFields).forEach(([key, value]) => {
+        // Eğer value zaten obje formatındaysa (datatype, required), olduğu gibi kullan
+        // Değilse (eski format), yeni formata çevir
+        if (typeof value === 'object' && value !== null && 'datatype' in value) {
+          formattedRequiredFields[key] = value;
+        } else {
+          formattedRequiredFields[key] = {
+            datatype: value,
+            required: true, // Required fields her zaman zorunlu
+          };
+        }
+      });
+
+      // Extra fields zaten yeni formatta (handleAddExtraField'da ayarlanıyor)
+      const allFields = { ...formattedRequiredFields, ...extraFields };
 
       const categoryData = {
         name: formData.name,
@@ -81,15 +96,22 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
   };
 
   const handleAddExtraField = (field) => {
+    // Mevcut alanları kontrol et (hem requiredFields hem extraFields'ı kontrol et)
     const allFields = { ...requiredFields, ...extraFields };
-    if (allFields[field.name]) {
+    const existingFieldNames = Object.keys(allFields);
+    
+    if (existingFieldNames.includes(field.name)) {
       toast.error('Bu alan adı zaten mevcut (zorunlu alanlar veya ekstra alanlar arasında)');
       return;
     }
     
+    // Yeni format: { fieldName: { datatype: "type", required: true/false } }
     setExtraFields({
       ...extraFields,
-      [field.name]: field.type,
+      [field.name]: {
+        datatype: field.type,
+        required: field.required || false,
+      },
     });
     toast.success(`${field.name} alanı eklendi`);
   };
@@ -182,23 +204,40 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
                 Bu alanlar ürün tipine göre otomatik olarak eklenir ve her üründe zorunludur.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {Object.entries(requiredFields).map(([key, type]) => (
-                  <div
-                    key={key}
-                    className={`flex items-center justify-between p-2 bg-white rounded border ${
-                      isFixedField(key) 
-                        ? 'border-primary-200 bg-primary-50' 
-                        : 'border-primary-200'
-                    }`}
-                  >
-                    <span className="text-sm font-medium text-gray-900">
-                      {translateFieldName(key)}
-                    </span>
-                    <span className="text-xs px-2 py-1 bg-primary-100 text-primary-700 rounded font-medium">
-                      {type === 'string' ? 'Metin' : type === 'integer' ? 'Tam Sayı' : 'Ondalıklı'}
-                    </span>
-                  </div>
-                ))}
+                {Object.entries(requiredFields).map(([key, value]) => {
+                  // value artık obje olabilir (datatype, required) veya string olabilir (eski format)
+                  const fieldType = typeof value === 'object' && value !== null && 'datatype' in value
+                    ? value.datatype
+                    : value;
+                  const isRequired = typeof value === 'object' && value !== null && 'required' in value
+                    ? value.required
+                    : true; // Eski format için varsayılan olarak true
+                  
+                  return (
+                    <div
+                      key={key}
+                      className={`flex items-center justify-between p-2 bg-white rounded border ${
+                        isFixedField(key) 
+                          ? 'border-primary-200 bg-primary-50' 
+                          : 'border-primary-200'
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-gray-900">
+                        {translateFieldName(key)}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        {isRequired && (
+                          <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded font-medium">
+                            Zorunlu
+                          </span>
+                        )}
+                        <span className="text-xs px-2 py-1 bg-primary-100 text-primary-700 rounded font-medium">
+                          {fieldType === 'string' ? 'Metin' : fieldType === 'integer' ? 'Tam Sayı' : 'Ondalıklı'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -231,27 +270,47 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {Object.entries(extraFields).map(([fieldName, fieldType]) => (
-                  <div
-                    key={fieldName}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 mb-1">{fieldName}</p>
-                      <p className="text-xs text-gray-500">
-                        Tip: {fieldType === 'string' ? 'Metin' : fieldType === 'integer' ? 'Tam Sayı' : 'Ondalıklı'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeExtraField(fieldName)}
-                      className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition-colors"
-                      title="Alanı Kaldır"
+                {Object.entries(extraFields).map(([fieldName, fieldData]) => {
+                  // fieldData artık { datatype, required } formatında
+                  const fieldType = typeof fieldData === 'object' && fieldData !== null && 'datatype' in fieldData
+                    ? fieldData.datatype
+                    : fieldData; // Eski format için geriye dönük uyumluluk
+                  const isRequired = typeof fieldData === 'object' && fieldData !== null && 'required' in fieldData
+                    ? fieldData.required
+                    : false;
+                  
+                  return (
+                    <div
+                      key={fieldName}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                     >
-                      <FiTrash2 />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900 mb-1">
+                          {fieldName}
+                          {isRequired && <span className="text-red-500 ml-1">*</span>}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-xs text-gray-500">
+                            Tip: {fieldType === 'string' ? 'Metin' : fieldType === 'integer' ? 'Tam Sayı' : 'Ondalıklı'}
+                          </p>
+                          {isRequired && (
+                            <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded font-medium">
+                              Zorunlu
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeExtraField(fieldName)}
+                        className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded transition-colors"
+                        title="Alanı Kaldır"
+                      >
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

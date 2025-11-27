@@ -6,13 +6,17 @@ export const branchService = {
     return response.data;
   },
 
-  createBranch: async (name) => {
-    const response = await api.post('/api/branches', { name });
+  createBranch: async (name, isStockEnabled) => {
+    const response = await api.post('/api/branches', { name, isStockEnabled });
     return response.data;
   },
 
   deleteBranch: async (id) => {
     await api.delete(`/api/branches/${id}`);
+  },
+
+  updateBranchStockEnabled: async (id, isStockEnabled) => {
+    await api.put(`/api/branches/${id}/stock-enabled`, isStockEnabled);
   },
 };
 
