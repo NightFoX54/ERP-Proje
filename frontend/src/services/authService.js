@@ -15,5 +15,9 @@ export const authService = {
     const response = await api.get('/api/auth/branches');
     return response.data;
   },
+
+  deleteAccount: async (id) => {
+    await api.delete(`/api/auth/accounts/${id}`);
+  },
 };
 

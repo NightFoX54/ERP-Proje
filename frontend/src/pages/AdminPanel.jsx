@@ -6,6 +6,7 @@ import { branchService } from '../services/branchService';
 import { toast } from 'react-toastify';
 import { FiPlus, FiTrash2, FiEdit2, FiUsers, FiMapPin } from 'react-icons/fi';
 import Loading from '../components/Loading';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const AdminPanel = () => {
   const { user } = useAuth();
@@ -22,6 +23,11 @@ const AdminPanel = () => {
   const [showUserModal, setShowUserModal] = useState(false);
   const [userForm, setUserForm] = useState({ username: '', password: '', branchId: '' });
   const [loadingUsers, setLoadingUsers] = useState(true);
+  
+  // Delete confirmation modal state
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteUserLoading, setDeleteUserLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'branches') {
@@ -139,6 +145,29 @@ const AdminPanel = () => {
     if (branchId === '0') return 'Admin';
     const branch = branches.find(b => b.id === branchId);
     return branch?.name || 'Bilinmeyen';
+  };
+
+  const handleDeleteUserClick = (user) => {
+    setUserToDelete(user);
+    setShowDeleteUserModal(true);
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    setDeleteUserLoading(true);
+    try {
+      await authService.deleteAccount(userToDelete.id);
+      toast.success('Kullanıcı başarıyla silindi');
+      setShowDeleteUserModal(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Kullanıcı silinirken bir hata oluştu');
+    } finally {
+      setDeleteUserLoading(false);
+    }
   };
 
   return (
@@ -278,12 +307,15 @@ const AdminPanel = () => {
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Şube
                         </th>
+                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          İşlemler
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
                       {users.length === 0 ? (
                         <tr>
-                          <td colSpan="3" className="px-6 py-8 text-center text-gray-500">
+                          <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
                             Henüz kullanıcı eklenmemiş
                           </td>
                         </tr>
@@ -306,6 +338,15 @@ const AdminPanel = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {getBranchName(user.branchId)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => handleDeleteUserClick(user)}
+                                className="text-red-600 hover:text-red-900 transition-colors"
+                                title="Kullanıcıyı Sil"
+                              >
+                                <FiTrash2 className="inline" />
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -444,6 +485,29 @@ const AdminPanel = () => {
             </div>
           </div>
         )}
+
+        {/* Delete User Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showDeleteUserModal}
+          onClose={() => {
+            if (!deleteUserLoading) {
+              setShowDeleteUserModal(false);
+              setUserToDelete(null);
+            }
+          }}
+          onConfirm={handleConfirmDeleteUser}
+          title="Kullanıcıyı Sil"
+          message={`"${userToDelete?.username || ''}" kullanıcısını silmek istediğinize emin misiniz?`}
+          warningMessage={
+            userToDelete?.accountType === 'ADMIN'
+              ? 'Bu bir admin hesabıdır. Admin hesabını silmek sistem yönetimini etkileyebilir.'
+              : null
+          }
+          confirmText="Sil"
+          cancelText="İptal"
+          confirmButtonClass="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={deleteUserLoading}
+        />
       </div>
     </Layout>
   );

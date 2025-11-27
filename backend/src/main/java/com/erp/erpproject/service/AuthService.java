@@ -59,4 +59,11 @@ public class AuthService {
         return accountsRepository.findByUsername(username)
             .orElseThrow(() -> new RuntimeException("Account not found"));
     }
+
+    public void deleteAccount(String id) {
+        if (accountsRepository.findById(id).isEmpty()) {
+            throw new RuntimeException("Account not found");
+        }
+        accountsRepository.deleteById(id);
+    }
 }

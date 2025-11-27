@@ -57,6 +57,10 @@ public class StockController {
         }
         return ResponseEntity.ok().body(stockService.createProductCategory(productCategory));
     }
+    @DeleteMapping("/product-categories/{id}")
+    public ResponseEntity<Void> deleteProductCategory(@PathVariable String id) {
+        return stockService.deleteProductCategory(id);
+    }
     @PostMapping("/product-types")
     public ProductType createProductType(@RequestBody ProductType productType) {
         return stockService.createProductType(productType);

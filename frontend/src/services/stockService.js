@@ -39,5 +39,9 @@ export const stockService = {
     const response = await api.get('/api/stock/product-types');
     return response.data;
   },
+
+  deleteProductCategory: async (id) => {
+    await api.delete(`/api/stock/product-categories/${id}`);
+  },
 };
 

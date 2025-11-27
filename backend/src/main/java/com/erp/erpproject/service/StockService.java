@@ -101,4 +101,12 @@ public class StockService {
     public List<ProductType> getAllProductTypes() {
         return productTypeRepository.findAll();
     }
+    public ResponseEntity<Void> deleteProductCategory(String id) {
+        if (productCategoriesRepository.findById(id).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+        productCategoriesRepository.deleteById(id);
+        productRepository.deleteAllByProductCategoryId(id);
+        return ResponseEntity.ok().build();
+    }
 }

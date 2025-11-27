@@ -8,6 +8,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiPackage, FiChevronRight } from 'react-icon
 import Loading from '../components/Loading';
 import ProductModal from '../components/ProductModal';
 import ProductCategoryModal from '../components/ProductCategoryModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { filterFixedFields, translateFieldName, getFieldType } from '../utils/fieldTranslations';
 
 const StockManagement = () => {
@@ -25,6 +26,11 @@ const StockManagement = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedBranchId, setSelectedBranchId] = useState(user?.branchId || '0');
+  
+  // Confirmation modal state
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     fetchBranches();
@@ -142,6 +148,47 @@ const StockManagement = () => {
     fetchProductCategories();
   };
 
+  const handleDeleteCategoryClick = async (categoryId, categoryName) => {
+    // Önce category detaylarını al ve ürün sayısını kontrol et
+    let productCount = 0;
+    try {
+      const categoryData = await stockService.getProductCategoryById(categoryId);
+      productCount = categoryData.products?.length || 0;
+    } catch (error) {
+      console.error('Error fetching category details:', error);
+    }
+
+    // Modal'ı aç ve bilgileri sakla
+    setCategoryToDelete({ id: categoryId, name: categoryName, productCount });
+    setShowDeleteConfirmModal(true);
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+
+    setDeleteLoading(true);
+    try {
+      await stockService.deleteProductCategory(categoryToDelete.id);
+      toast.success('Ürün başlığı başarıyla silindi' + (categoryToDelete.productCount > 0 ? ` (${categoryToDelete.productCount} ürün de silindi)` : ''));
+      
+      // Eğer silinen category seçiliyse, seçimi temizle
+      if (selectedCategory === categoryToDelete.id) {
+        setSelectedCategory(null);
+        setCategoryDetails(null);
+        setProducts([]);
+      }
+      
+      setShowDeleteConfirmModal(false);
+      setCategoryToDelete(null);
+      fetchProductCategories();
+    } catch (error) {
+      console.error('Error deleting product category:', error);
+      toast.error('Ürün başlığı silinirken bir hata oluştu');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const canManage = canManageStock(selectedBranchId);
 
   if (loading) {
@@ -213,26 +260,47 @@ const StockManagement = () => {
               ) : (
                 <div className="space-y-2">
                   {productCategories.map((category) => (
-                    <button
+                    <div
                       key={category.id}
-                      onClick={() => handleCategorySelect(category.id)}
-                      className={`w-full text-left p-4 rounded-xl transition-all duration-300 ${
+                      className={`group relative w-full rounded-xl transition-all duration-300 ${
                         selectedCategory === category.id
                           ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 transform scale-[1.02]'
                           : 'bg-gray-50 hover:bg-pastel-lightBlue/50 text-gray-900 hover:shadow-md'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold">{category.name}</span>
-                        <FiChevronRight
-                          className={`transition-transform duration-300 ${
-                            selectedCategory === category.id 
-                              ? 'text-white transform translate-x-1' 
-                              : 'text-gray-400'
+                      <button
+                        onClick={() => handleCategorySelect(category.id)}
+                        className="w-full text-left p-4 pr-12"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">{category.name}</span>
+                          <FiChevronRight
+                            className={`transition-transform duration-300 ${
+                              selectedCategory === category.id 
+                                ? 'text-white transform translate-x-1' 
+                                : 'text-gray-400'
+                            }`}
+                          />
+                        </div>
+                      </button>
+                      
+                      {isAdmin() && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCategoryClick(category.id, category.name);
+                          }}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all duration-200 ${
+                            selectedCategory === category.id
+                              ? 'text-white hover:bg-white/20'
+                              : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                           }`}
-                        />
-                      </div>
-                    </button>
+                          title="Başlığı Sil"
+                        >
+                          <FiTrash2 className="text-lg" />
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -432,6 +500,29 @@ const StockManagement = () => {
             onSave={handleCategorySave}
           />
         )}
+
+        {/* Delete Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showDeleteConfirmModal}
+          onClose={() => {
+            if (!deleteLoading) {
+              setShowDeleteConfirmModal(false);
+              setCategoryToDelete(null);
+            }
+          }}
+          onConfirm={handleConfirmDeleteCategory}
+          title="Ürün Başlığını Sil"
+          message={`"${categoryToDelete?.name || ''}" başlığını silmek istediğinize emin misiniz?`}
+          warningMessage={
+            categoryToDelete?.productCount > 0
+              ? `Bu başlığa kayıtlı ${categoryToDelete.productCount} ürün bulunmaktadır. Bu başlığı silerseniz, bu başlığa ait tüm ürünler de kalıcı olarak silinecektir.`
+              : null
+          }
+          confirmText="Sil"
+          cancelText="İptal"
+          confirmButtonClass="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={deleteLoading}
+        />
       </div>
     </Layout>
   );
