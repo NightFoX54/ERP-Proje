@@ -399,7 +399,7 @@ const StockManagement = () => {
                                   {product.length || '-'} mm
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {product.weight || '-'} kg
+                                  {product.weight ? parseFloat(product.weight).toFixed(2) : '-'} kg
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
                                   <span

@@ -12,7 +12,6 @@ const ProductOrderModal = ({
   const [formData, setFormData] = useState({
     diameter: product?.diameter || '',
     length: '',
-    weight: '',
     quantity: 1,
     fields: {},
   });
@@ -24,7 +23,6 @@ const ProductOrderModal = ({
       setFormData({
         diameter: product.diameter || '',
         length: '',
-        weight: '',
         quantity: 1,
         fields: {},
       });
@@ -39,9 +37,8 @@ const ProductOrderModal = ({
       newErrors.quantity = 'Adet zorunludur ve 0\'dan büyük olmalıdır';
     }
 
-    if (!formData.length && !formData.weight) {
-      newErrors.length = 'Uzunluk veya ağırlık girilmelidir';
-      newErrors.weight = 'Uzunluk veya ağırlık girilmelidir';
+    if (!formData.length) {
+      newErrors.length = 'Uzunluk girilmelidir';
     }
 
     setErrors(newErrors);
@@ -71,7 +68,7 @@ const ProductOrderModal = ({
       productCategoryId: category?.id || '',
       diameter: parseFloat(formData.diameter) || 0,
       length: formData.length ? parseFloat(formData.length) : null,
-      weight: formData.weight ? parseFloat(formData.weight) : null,
+      weight: null,
       quantity: parseInt(formData.quantity) || 1,
       wastageLength: 0,
       wastageWeight: 0,
@@ -137,47 +134,25 @@ const ProductOrderModal = ({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Uzunluk (mm)
+                Uzunluk (mm) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
                 value={formData.length}
                 onChange={(e) => {
                   setFormData({ ...formData, length: e.target.value });
-                  // Uzunluk girildiyse ağırlık hatasını temizle
-                  if (e.target.value && errors.weight) {
-                    setErrors({ ...errors, weight: '', length: '' });
+                  // Uzunluk girildiyse hatayı temizle
+                  if (e.target.value && errors.length) {
+                    setErrors({ ...errors, length: '' });
                   }
                 }}
                 className={`input-field ${errors.length ? 'border-red-500' : ''}`}
                 step="0.01"
                 min="0"
+                required
               />
               {errors.length && (
                 <p className="text-red-500 text-xs mt-1">{errors.length}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ağırlık (kg)
-              </label>
-              <input
-                type="number"
-                value={formData.weight}
-                onChange={(e) => {
-                  setFormData({ ...formData, weight: e.target.value });
-                  // Ağırlık girildiyse uzunluk hatasını temizle
-                  if (e.target.value && errors.length) {
-                    setErrors({ ...errors, length: '', weight: '' });
-                  }
-                }}
-                className={`input-field ${errors.weight ? 'border-red-500' : ''}`}
-                step="0.01"
-                min="0"
-              />
-              {errors.weight && (
-                <p className="text-red-500 text-xs mt-1">{errors.weight}</p>
               )}
             </div>
 

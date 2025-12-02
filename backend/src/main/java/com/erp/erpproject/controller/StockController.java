@@ -69,4 +69,9 @@ public class StockController {
     public List<ProductType> getAllProductTypes() {
         return stockService.getAllProductTypes();
     }
+
+    @GetMapping("/product-categories/{id}/diameter/{diameter}")
+    public List<Product> getProductsByProductCategoryIdAndDiameter(@PathVariable String id, @PathVariable Double diameter) {
+        return stockService.getProductsByProductCategoryIdAndDiameter(id, diameter);
+    }
 }

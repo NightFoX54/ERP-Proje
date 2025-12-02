@@ -12,6 +12,7 @@ com\erp\erpproject\service\JwtService.class
 com\erp\erpproject\model\Orders.class
 com\erp\erpproject\repository\BranchesRepository.class
 com\erp\erpproject\model\Accounts$AccountType.class
+com\erp\erpproject\dto\CuttingInfoDto.class
 com\erp\erpproject\repository\AccountsRepository.class
 com\erp\erpproject\repository\ProductCategoriesRepository.class
 com\erp\erpproject\model\Product.class
@@ -23,6 +24,7 @@ com\erp\erpproject\dto\LoginRequestDto.class
 com\erp\erpproject\dto\RegiterRequestDto.class
 com\erp\erpproject\repository\ProductRepository.class
 com\erp\erpproject\model\ProductType.class
+com\erp\erpproject\dto\OrderCuttingDto.class
 com\erp\erpproject\controller\BranchController.class
 com\erp\erpproject\controller\StockController.class
 com\erp\erpproject\repository\OrdersRepository.class
@@ -31,4 +33,5 @@ com\erp\erpproject\util\SecurityUtil.class
 com\erp\erpproject\config\SecurityConfig.class
 com\erp\erpproject\model\Orders$OrderStatus.class
 com\erp\erpproject\model\Accounts.class
+com\erp\erpproject\dto\OrderStatusDto.class
 com\erp\erpproject\dto\ProductCategoryDto.class

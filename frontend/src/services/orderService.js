@@ -23,8 +23,14 @@ export const orderService = {
   },
 
   // Sipariş durumu güncelle (onay işlemleri)
-  updateOrderStatus: async (id, status, branchId) => {
-    const response = await api.put(`/api/orders/${id}/status`, { status, branchId });
+  updateOrderStatus: async (id, status) => {
+    const response = await api.put(`/api/orders/${id}/status`, {status});
+    return response.data;
+  },
+
+  // Sipariş kesim bilgilerini güncelle
+  updateOrderCutting: async (id, cuttingData) => {
+    const response = await api.post(`/api/orders/${id}/cutting`, cuttingData);
     return response.data;
   },
 

@@ -6,7 +6,7 @@ import { orderService } from '../services/orderService';
 import { branchService } from '../services/branchService';
 import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
-import { FiArrowLeft, FiCheck, FiX, FiClock } from 'react-icons/fi';
+import { FiArrowLeft, FiCheck, FiX, FiClock, FiPlus, FiTrash2 } from 'react-icons/fi';
 import Loading from '../components/Loading';
 
 const OrderDetail = () => {
@@ -16,8 +16,14 @@ const OrderDetail = () => {
   const [order, setOrder] = useState(null);
   const [branches, setBranches] = useState([]);
   const [categories, setCategories] = useState({}); // categoryId -> categoryName map
+  const [categoryDetails, setCategoryDetails] = useState({}); // categoryId -> full category data
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [showReadyModal, setShowReadyModal] = useState(false);
+  // itemIndex -> [{ productId, quantity, cutWeight }]
+  const [selectedProducts, setSelectedProducts] = useState({});
+  const [availableProducts, setAvailableProducts] = useState({}); // itemIndex -> products array
+  const [loadingProducts, setLoadingProducts] = useState({}); // itemIndex -> loading state
 
   useEffect(() => {
     fetchData();
@@ -58,21 +64,30 @@ const OrderDetail = () => {
         try {
           const categoryPromises = categoryIds.map(categoryId => 
             stockService.getProductCategoryById(categoryId)
-              .then(data => ({ id: categoryId, name: data?.productCategories?.name || 'Bilinmeyen' }))
+              .then(data => ({ 
+                id: categoryId, 
+                name: data?.productCategories?.name || 'Bilinmeyen',
+                data: data
+              }))
               .catch(error => {
                 console.error(`[OrderDetail] Error fetching category ${categoryId}:`, error);
-                return { id: categoryId, name: 'Bilinmeyen' };
+                return { id: categoryId, name: 'Bilinmeyen', data: null };
               })
           );
           
           const categoryResults = await Promise.all(categoryPromises);
           const categoryMap = {};
-          categoryResults.forEach(({ id, name }) => {
+          const categoryDetailsMap = {};
+          categoryResults.forEach(({ id, name, data }) => {
             categoryMap[id] = name;
+            if (data?.productCategories) {
+              categoryDetailsMap[id] = data.productCategories;
+            }
           });
           
           console.log('[OrderDetail] Categories loaded:', categoryMap);
           setCategories(categoryMap);
+          setCategoryDetails(categoryDetailsMap);
         } catch (error) {
           console.error('[OrderDetail] Error fetching categories:', error);
         }
@@ -94,19 +109,154 @@ const OrderDetail = () => {
 
   const getBranchName = (branchId) => {
     if (!branchId) return 'Bilinmeyen';
+    if (branchId === '0') return 'Admin';
     const branch = branches.find(b => b.id === branchId);
     return branch?.name || 'Bilinmeyen';
   };
 
   const handleStatusUpdate = async (newStatus) => {
+    if (newStatus === 'Hazır') {
+      // Hazır onayı için modal aç
+      setShowReadyModal(true);
+      return;
+    }
+
     if (!window.confirm('Bu işlemi gerçekleştirmek istediğinize emin misiniz?')) {
       return;
     }
 
     try {
       setUpdating(true);
-      await orderService.updateOrderStatus(id, newStatus, user?.branchId);
+      await orderService.updateOrderStatus(id, newStatus);
       toast.success('Sipariş durumu güncellendi');
+      fetchData();
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error('Sipariş durumu güncellenirken bir hata oluştu');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleOpenReadyModal = () => {
+    setShowReadyModal(true);
+    // Her order item için stok ürünlerini yükle ve başlangıç seçimi ekle
+    if (order?.orderItems) {
+      const initialSelectedProducts = {};
+      order.orderItems.forEach((item, index) => {
+        loadProductsForItem(item, index);
+        // Her item için başlangıçta bir boş seçim ekle
+        initialSelectedProducts[index] = [{
+          productId: '',
+          quantity: '',
+          cutWeight: ''
+        }];
+      });
+      setSelectedProducts(initialSelectedProducts);
+    }
+  };
+
+  const loadProductsForItem = async (item, index) => {
+    if (!item.productCategoryId || !item.diameter) return;
+    
+    const category = categoryDetails[item.productCategoryId];
+    if (!category?.id) return;
+
+    try {
+      setLoadingProducts(prev => ({ ...prev, [index]: true }));
+      const products = await stockService.getProductsByProductCategoryIdAndDiameter(
+        category.id,
+        item.diameter
+      );
+      setAvailableProducts(prev => ({ ...prev, [index]: products || [] }));
+    } catch (error) {
+      console.error(`Error loading products for item ${index}:`, error);
+      setAvailableProducts(prev => ({ ...prev, [index]: [] }));
+    } finally {
+      setLoadingProducts(prev => ({ ...prev, [index]: false }));
+    }
+  };
+
+  const addProductToItem = (itemIndex) => {
+    setSelectedProducts(prev => ({
+      ...prev,
+      [itemIndex]: [
+        ...(prev[itemIndex] || []),
+        {
+          productId: '',
+          quantity: '',
+          cutWeight: ''
+        }
+      ]
+    }));
+  };
+
+  const removeProductFromItem = (itemIndex, productIndex) => {
+    setSelectedProducts(prev => {
+      const newProducts = [...(prev[itemIndex] || [])];
+      newProducts.splice(productIndex, 1);
+      return {
+        ...prev,
+        [itemIndex]: newProducts
+      };
+    });
+  };
+
+  const updateProductData = (itemIndex, productIndex, field, value) => {
+    setSelectedProducts(prev => {
+      const newProducts = [...(prev[itemIndex] || [])];
+      newProducts[productIndex] = {
+        ...newProducts[productIndex],
+        [field]: value
+      };
+      return {
+        ...prev,
+        [itemIndex]: newProducts
+      };
+    });
+  };
+
+  const handleConfirmReady = async () => {
+    try {
+      setUpdating(true);
+      
+      // selectedProducts'ı OrderCuttingDto formatına çevir
+      const cuttingInfo = [];
+      
+      // Tüm sipariş ürünleri için kesim bilgilerini topla
+      Object.keys(selectedProducts).forEach(itemIndex => {
+        const itemSelectedProducts = selectedProducts[itemIndex];
+        const orderItem = order.orderItems[parseInt(itemIndex)];
+        const orderItemLength = orderItem?.length || null;
+        
+        // Her bir seçilen stok ürünü için kesim bilgisi oluştur
+        itemSelectedProducts.forEach(selectedProduct => {
+          if (selectedProduct.productId && selectedProduct.quantity && selectedProduct.cutWeight) {
+            cuttingInfo.push({
+              productId: selectedProduct.productId,
+              quantity: parseInt(selectedProduct.quantity) || 0,
+              cutLength: orderItemLength ? parseInt(orderItemLength) : null,
+              totalCutWeight: parseFloat(selectedProduct.cutWeight) || 0
+            });
+          }
+        });
+      });
+
+      // Kesim bilgilerini backend'e gönder
+      const cuttingData = {
+        orderId: id,
+        cuttingInfo: cuttingInfo
+      };
+
+      await orderService.updateOrderCutting(id, cuttingData);
+      
+      // Sipariş durumunu güncelle
+      await orderService.updateOrderStatus(id, 'Hazır');
+      
+      toast.success('Sipariş durumu güncellendi');
+      setShowReadyModal(false);
+      // Reset form
+      setSelectedProducts({});
       fetchData();
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -195,7 +345,7 @@ const OrderDetail = () => {
                 Müşteri: {order.customerName || 'Bilinmeyen'}
               </p>
               <p className="text-gray-600">
-                Gönderen: {getBranchName(order.orderGivenBranchId)} → Alıcı: {getBranchName(order.orderDeliveryBranchId)}
+                Oluşturan: {getBranchName(order.orderGivenBranchId)} → Hazırlayan: {getBranchName(order.orderDeliveryBranchId)}
               </p>
             </div>
           </div>
@@ -288,7 +438,7 @@ const OrderDetail = () => {
                     // OrderItem'dan bilgileri çıkar
                     const diameter = item.diameter || '-';
                     const length = item.length ? `${item.length}mm` : '';
-                    const weight = item.weight ? `${item.weight}kg` : '';
+                    const weight = item.weight ? `${parseFloat(item.weight).toFixed(2)}kg` : '';
                     const quantity = item.quantity || 0;
                     const categoryName = categories[item.productCategoryId] || 'Bilinmeyen';
                     
@@ -347,7 +497,7 @@ const OrderDetail = () => {
               )}
               {order.orderStatus === 'Onaylandı' && (
                 <button
-                  onClick={() => handleStatusUpdate('Hazır')}
+                  onClick={handleOpenReadyModal}
                   disabled={updating}
                   className="btn-primary flex items-center bg-green-500 hover:bg-green-600"
                 >
@@ -375,6 +525,157 @@ const OrderDetail = () => {
                   İptal Et
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Ready Confirmation Modal */}
+        {showReadyModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">Hazır Onayı - Kesim Bilgileri</h2>
+                  <button
+                    onClick={() => setShowReadyModal(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl"
+                  >
+                    <FiX />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Order Items with Product Selection */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Sipariş Ürünleri ve Kesim Kaynağı</h3>
+                  <div className="space-y-6">
+                    {order.orderItems?.map((item, index) => {
+                      const diameter = item.diameter || '-';
+                      const length = item.length ? `${item.length}mm` : '';
+                      const weight = item.weight ? `${item.weight}kg` : '';
+                      const quantity = item.quantity || 0;
+                      const categoryName = categories[item.productCategoryId] || 'Bilinmeyen';
+                      const products = availableProducts[index] || [];
+                      const isLoading = loadingProducts[index];
+                      const itemSelectedProducts = selectedProducts[index] || [];
+
+                      return (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div className="mb-4 pb-4 border-b border-gray-300">
+                            <p className="font-bold text-primary-700 text-lg">{categoryName}</p>
+                            <p className="text-sm text-gray-600">Çap: {diameter}mm | Sipariş Miktarı: {quantity} parça</p>
+                            {length && <p className="text-xs text-gray-500">Uzunluk: {length}</p>}
+                            {weight && <p className="text-xs text-gray-500">Ağırlık: {weight}</p>}
+                          </div>
+                          
+                          {/* Selected Products for this item */}
+                          <div className="space-y-4">
+                            {itemSelectedProducts.map((selectedProduct, productIndex) => (
+                              <div key={productIndex} className="bg-white rounded-lg p-4 border border-gray-200">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="font-semibold text-gray-700">Kesim Kaynağı #{productIndex + 1}</h4>
+                                  {itemSelectedProducts.length > 1 && (
+                                    <button
+                                      onClick={() => removeProductFromItem(index, productIndex)}
+                                      className="text-red-500 hover:text-red-700 p-1"
+                                      type="button"
+                                    >
+                                      <FiTrash2 />
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Stok Ürünü
+                                    </label>
+                                    {isLoading ? (
+                                      <div className="text-sm text-gray-500">Yükleniyor...</div>
+                                    ) : (
+                                      <select
+                                        value={selectedProduct.productId}
+                                        onChange={(e) => updateProductData(index, productIndex, 'productId', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                      >
+                                        <option value="">Stok ürünü seçin</option>
+                                        {products.map((product) => (
+                                          <option key={product.id} value={product.id}>
+                                            Stok: {product.stock} | Uzunluk: {product.length}mm | Ağırlık: {product.weight ? parseFloat(product.weight).toFixed(2) : '-'}kg
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Kesilen Miktar (parça)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={selectedProduct.quantity}
+                                      onChange={(e) => updateProductData(index, productIndex, 'quantity', e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Toplam Kesilen Ağırlık (kg)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={selectedProduct.cutWeight}
+                                      onChange={(e) => updateProductData(index, productIndex, 'cutWeight', e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Add Product Button */}
+                          <button
+                            onClick={() => addProductToItem(index)}
+                            type="button"
+                            className="mt-4 w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-primary-500 hover:text-primary-600 transition-colors flex items-center justify-center"
+                          >
+                            <FiPlus className="mr-2" />
+                            Başka Bir Stok Ürünü Ekle
+                          </button>
+
+                          {products.length === 0 && !isLoading && (
+                            <p className="text-xs text-red-500 mt-2">Bu özelliklerde stok ürünü bulunamadı</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowReadyModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleConfirmReady}
+                  disabled={updating}
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  <FiCheck className="mr-2" />
+                  Onayla ve Hazır Durumuna Geçir
+                </button>
+              </div>
             </div>
           </div>
         )}

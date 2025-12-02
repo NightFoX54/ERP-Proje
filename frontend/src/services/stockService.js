@@ -43,5 +43,10 @@ export const stockService = {
   deleteProductCategory: async (id) => {
     await api.delete(`/api/stock/product-categories/${id}`);
   },
+
+  getProductsByProductCategoryIdAndDiameter: async (productCategoryId, diameter) => {
+    const response = await api.get(`/api/stock/product-categories/${productCategoryId}/diameter/${diameter}`);
+    return response.data;
+  },
 };
 

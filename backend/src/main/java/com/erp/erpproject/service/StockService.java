@@ -1,6 +1,7 @@
 package com.erp.erpproject.service;
 
 import java.util.List;
+import java.util.Date;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,9 @@ public class StockService {
         if (!productCategory.getBranchId().equals(SecurityUtil.getCurrentBranchId()) && !SecurityUtil.isAdmin()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
+        product.setTotalPurchasePrice(product.getPurchasePrice() * product.getStock() * product.getWeight());
+        product.setCreatedAt(new Date());
+        product.setIsActive(true);
         return ResponseEntity.ok().body(productRepository.save(product));
     }
     public ResponseEntity<Product> updateProduct(String id, Product product) {
@@ -108,5 +112,11 @@ public class StockService {
         productCategoriesRepository.deleteById(id);
         productRepository.deleteAllByProductCategoryId(id);
         return ResponseEntity.ok().build();
+    }
+    public List<Product> getProductsByProductCategoryIdAndDiameter(String id, Double diameter) {
+        if (productCategoriesRepository.findById(id).isEmpty()) {
+            throw new RuntimeException("Product category not found");
+        }
+        return productRepository.findAllByProductCategoryIdAndDiameter(id, diameter);
     }
 }

@@ -5,8 +5,11 @@ C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpp
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\controller\OrderController.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\controller\StockController.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\BranchRequestDto.java
+C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\CuttingInfoDto.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\LoginRegisterResponseDto.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\LoginRequestDto.java
+C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\OrderCuttingDto.java
+C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\OrderStatusDto.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\ProductCategoryDto.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\dto\RegiterRequestDto.java
 C:\Users\e1a54\OneDrive\Masaüstü\erpproject\backend\src\main\java\com\erp\erpproject\ErpprojectApplication.java

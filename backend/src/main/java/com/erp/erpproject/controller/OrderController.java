@@ -5,12 +5,15 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.erp.erpproject.dto.OrderCuttingDto;
+import com.erp.erpproject.dto.OrderStatusDto;
 import com.erp.erpproject.model.Orders;
 import com.erp.erpproject.service.OrderService;
 
@@ -33,5 +36,14 @@ public class OrderController {
     @GetMapping("/{id}")
     public ResponseEntity<Orders> getOrderById(@PathVariable String id) {
         return ResponseEntity.ok(orderService.getOrderById(id));
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<Orders> updateOrderStatus(@PathVariable String id, @RequestBody OrderStatusDto status) {
+        return ResponseEntity.ok(orderService.updateOrderStatus(id, status.getStatus().name()));
+    }
+    @PostMapping("/{id}/cutting")
+    public ResponseEntity<Orders> updateOrderCutting(@PathVariable String id, @RequestBody OrderCuttingDto cutting) {
+        return ResponseEntity.ok(orderService.updateOrderCutting(id, cutting));
     }
 }

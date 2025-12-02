@@ -48,7 +48,7 @@ const CreateOrder = () => {
       
       // Kendi şubesini hariç tutarak şubeleri çek
       const branchesData = await branchService.getBranches();
-      const filteredBranches = branchesData.filter(b => b.id !== user?.branchId && b.stockEnabled);
+      const filteredBranches = branchesData.filter(b => b.stockEnabled);
       setBranches(filteredBranches || []);
 
       // Seçili şubenin ürün başlıklarını çek (varsayılan olarak ilk şube)
@@ -193,7 +193,7 @@ const CreateOrder = () => {
     
     setCart([...cart, {
       orderItem: orderItem,
-      productName: `${orderItem.diameter || ''}mm - ${orderItem.length ? orderItem.length + 'mm' : orderItem.weight ? orderItem.weight + 'kg' : ''}`,
+      productName: `${orderItem.diameter || ''}mm - ${orderItem.length ? orderItem.length + 'mm' : orderItem.weight ? parseFloat(orderItem.weight).toFixed(2) + 'kg' : ''}`,
       quantity: orderItem.quantity,
       branchId: selectedBranch, // Şube ID'sini sakla
     }]);
@@ -406,7 +406,7 @@ const CreateOrder = () => {
                               {product.diameter ? `${product.diameter}mm` : ''} - {product.length ? `${product.length}m` : ''}
                             </p>
                             <p className="text-sm text-gray-600">
-                              Ağırlık: {product.weight}kg | Stok: <span className="font-semibold text-green-600">{product.stock}</span>
+                              Ağırlık: {product.weight ? parseFloat(product.weight).toFixed(2) : '-'}kg | Stok: <span className="font-semibold text-green-600">{product.stock}</span>
                             </p>
                           </div>
                           <button
@@ -456,7 +456,7 @@ const CreateOrder = () => {
                               <div className="text-xs text-gray-500 mt-1">
                                 {item.orderItem.diameter && `Çap: ${item.orderItem.diameter}mm`}
                                 {item.orderItem.length && ` | Uzunluk: ${item.orderItem.length}mm`}
-                                {item.orderItem.weight && ` | Ağırlık: ${item.orderItem.weight}kg`}
+                                {item.orderItem.weight && ` | Ağırlık: ${parseFloat(item.orderItem.weight).toFixed(2)}kg`}
                               </div>
                             )}
                           </div>

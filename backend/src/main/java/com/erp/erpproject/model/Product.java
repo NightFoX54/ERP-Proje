@@ -1,5 +1,6 @@
 package com.erp.erpproject.model;
 
+import java.util.Date;
 import java.util.Map;
 
 import org.springframework.data.annotation.Id;
@@ -18,4 +19,8 @@ public class Product {
     private Integer stock;
     private Integer diameter;
     private Map<String, Object> fields;
+    private Double totalPurchasePrice;
+    private Boolean isActive;
+    private Date createdAt;
+    
 }

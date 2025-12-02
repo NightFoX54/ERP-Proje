@@ -9,20 +9,31 @@ import { FiShoppingCart, FiPlus, FiEye, FiClock, FiCheck, FiX } from 'react-icon
 import Loading from '../components/Loading';
 
 const Orders = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // 'all', 'my-orders', 'related-orders'
+  // Branch hesapları için başlangıç filtresi 'my-orders', admin için 'all'
+  const [filter, setFilter] = useState(() => {
+    // Bu fonksiyon sadece ilk render'da çalışır
+    return isAdmin() ? 'all' : 'my-orders';
+  });
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // User yüklendikten sonra filtreyi ayarla
+  useEffect(() => {
+    if (user && !isAdmin() && filter === 'all') {
+      setFilter('my-orders');
+    }
+  }, [user]);
+
   useEffect(() => {
     filterOrders();
-  }, [filter, orders]);
+  }, [filter, orders, user]);
 
   const fetchData = async () => {
     try {
@@ -44,17 +55,27 @@ const Orders = () => {
   };
 
   const filterOrders = () => {
+    // Branch hesapları için 'all' filtresini engelle
+    if (!isAdmin() && filter === 'all') {
+      setFilter('my-orders');
+      return;
+    }
+    
     if (filter === 'my-orders') {
       setFilteredOrders(orders.filter(order => order.orderGivenBranchId === user?.branchId));
     } else if (filter === 'related-orders') {
       setFilteredOrders(orders.filter(order => order.orderDeliveryBranchId === user?.branchId));
-    } else {
+    } else if (filter === 'all' && isAdmin()) {
       setFilteredOrders(orders);
+    } else {
+      // Güvenlik için: eğer branch kullanıcısı 'all' filtresine ulaşırsa, 'my-orders' göster
+      setFilteredOrders(orders.filter(order => order.orderGivenBranchId === user?.branchId));
     }
   };
 
   const getBranchName = (branchId) => {
     if (!branchId) return 'Bilinmeyen';
+    if (branchId === '0') return 'Admin';
     const branch = branches.find(b => b.id === branchId);
     return branch?.name || 'Bilinmeyen';
   };
@@ -108,16 +129,18 @@ const Orders = () => {
         {/* Filters */}
         <div className="card">
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 ${
-                filter === 'all'
-                  ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
-              }`}
-            >
-              Tüm Siparişler
-            </button>
+            {isAdmin() && (
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 ${
+                  filter === 'all'
+                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
+                }`}
+              >
+                Tüm Siparişler
+              </button>
+            )}
             <button
               onClick={() => setFilter('my-orders')}
               className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 ${
@@ -128,16 +151,18 @@ const Orders = () => {
             >
               Gönderdiğim Siparişler
             </button>
-            <button
-              onClick={() => setFilter('related-orders')}
-              className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 ${
-                filter === 'related-orders'
-                  ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
-              }`}
-            >
-              Bana Gelen Siparişler
-            </button>
+            {!isAdmin() && (
+              <button
+                onClick={() => setFilter('related-orders')}
+                className={`px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 ${
+                  filter === 'related-orders'
+                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
+                }`}
+              >
+                Bana Gelen Siparişler
+              </button>
+            )}
           </div>
         </div>
 
@@ -161,10 +186,13 @@ const Orders = () => {
                       Sipariş No
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Gönderen
+                      Oluşturan
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Alıcı
+                      Hazırlayan
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Alıcı Firma
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Durum
@@ -188,6 +216,9 @@ const Orders = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {getBranchName(order.orderDeliveryBranchId)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {order.customerName || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(order.orderStatus)}
