@@ -19,8 +19,7 @@ public class Product {
     private Integer stock;
     private Integer diameter;
     private Map<String, Object> fields;
-    private Double totalPurchasePrice;
+    private Double kgPrice;
     private Boolean isActive;
     private Date createdAt;
-    
 }

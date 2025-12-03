@@ -1,17 +1,21 @@
 package com.erp.erpproject.service;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.erp.erpproject.dto.CuttingInfoDto;
 import com.erp.erpproject.dto.OrderCuttingDto;
 import com.erp.erpproject.model.Orders;
 import com.erp.erpproject.model.Orders.OrderStatus;
-import com.erp.erpproject.repository.OrdersRepository;
-import com.erp.erpproject.dto.CuttingInfoDto;
 import com.erp.erpproject.model.Product;
+import com.erp.erpproject.model.ProductType;
+import com.erp.erpproject.repository.OrdersRepository;
 import com.erp.erpproject.repository.ProductRepository;
+import com.erp.erpproject.repository.ProductTypeRepository;
+import com.erp.erpproject.repository.ProductCategoriesRepository;
 
 @Service
 public class OrderService {
@@ -19,6 +23,10 @@ public class OrderService {
     private OrdersRepository ordersRepository;
     @Autowired
     private ProductRepository productRepository;
+    @Autowired
+    private ProductTypeRepository productTypeRepository;
+    @Autowired
+    private ProductCategoriesRepository productCategoriesRepository;
 
     public List<Orders> getOrders() {
         return ordersRepository.findAll();
@@ -53,15 +61,18 @@ public class OrderService {
             if (order.getTotalWastageLength() == null) {
                 order.setTotalWastageLength(0.0);
             }
-            
             for (CuttingInfoDto cuttingInfo : cutting.getCuttingInfo()) {
                 Product product = productRepository.findById(cuttingInfo.getProductId()).orElse(null);
+                ProductType productType = productTypeRepository.findById(productCategoriesRepository.findById(product.getProductCategoryId()).orElse(null).getProductTypeId()).orElse(null);
+
                 if (product != null && cuttingInfo.getCutLength() != null) {
                     Integer wastageLength = 0;
-                    if((cuttingInfo.getCutLength() + 3) * cuttingInfo.getQuantity() > product.getLength()) {
-                        wastageLength = 3 * (cuttingInfo.getQuantity() - 1);
-                    } else {
-                        wastageLength = 3 * cuttingInfo.getQuantity();
+                    if(productType.getName().equals("Dolu")) {
+                        if((cuttingInfo.getCutLength() + 3) * cuttingInfo.getQuantity() > product.getLength()) {
+                            wastageLength = 3 * (cuttingInfo.getQuantity() - 1);
+                        } else {
+                            wastageLength = 3 * cuttingInfo.getQuantity();
+                        }
                     }
                     
                     // Double cast ile integer division sorununu çöz
@@ -71,23 +82,36 @@ public class OrderService {
                     // r (m) = diameter/2/1000 = diameter/2000
                     // h (m) = wastageLength/1000
                     // Ağırlık (kg) = π * (diameter/2000)² * (wastageLength/1000) * 7850
-                    Double wastageLengthM = wastageLength / 1000.0;
-                    Double diameterM = product.getDiameter() / 2000.0;
-                    Double wastageWeight = wastageLengthM * diameterM * diameterM * Math.PI * 7850.0;
-                    
-                    Integer cutLength = cuttingInfo.getCutLength() * cuttingInfo.getQuantity();
-                    product.setLength(product.getLength() - wastageLength - cutLength);
-                    product.setWeight(product.getWeight() - wastageWeight - cuttingInfo.getTotalCutWeight());
-                    if(product.getLength() <= 0 || product.getWeight() <= 0) {
-                        product.setIsActive(false);
+                    if(productType.getName().equals("Dolu")) {
+                        Double wastageLengthM = wastageLength / 1000.0;
+                        Double diameterM = product.getDiameter() / 2000.0;
+                        Double wastageWeight = wastageLengthM * diameterM * diameterM * Math.PI * 7850.0;
+                        
+                        Integer cutLength = cuttingInfo.getCutLength() * cuttingInfo.getQuantity();
+                        product.setLength(product.getLength() - wastageLength - cutLength);
+                        product.setWeight(product.getWeight() - wastageWeight - cuttingInfo.getTotalCutWeight());
+                        if(product.getLength() <= 0 || product.getWeight() <= 0) {
+                            product.setIsActive(false);
+                        }
+                        order.setTotalSaleLength(order.getTotalSaleLength() + cutLength);
+                                            order.setTotalWastageWeight(order.getTotalWastageWeight() + wastageWeight);
+                    order.setTotalWastageLength(order.getTotalWastageLength() + wastageLength.doubleValue());
+                    }
+                    else{
+                        product.setStock(product.getStock() - cuttingInfo.getQuantity());
+                        if(product.getStock() <= 0) {
+                            product.setIsActive(false);
+                        }
                     }
                     productRepository.save(product);
                     
                     // Null-safe toplama
-                    order.setTotalWastageWeight(order.getTotalWastageWeight() + wastageWeight);
-                    order.setTotalWastageLength(order.getTotalWastageLength() + wastageLength.doubleValue());
+                    order.setTotalSaleWeight(order.getTotalSaleWeight() + cuttingInfo.getTotalCutWeight());
+
+                    order.getSoldItems().add(Map.of("productId", product.getId(), "totalSoldWeight", cuttingInfo.getTotalCutWeight(), "kgPrice", order.getKgPrice(), "totalPrice", cuttingInfo.getTotalCutWeight() * order.getKgPrice()));
                 }
             }
+            order.setTotalPrice(order.getTotalSaleWeight() * order.getKgPrice());
             updateOrderStatus(id, "Hazır");
             return ordersRepository.save(order);
         }

@@ -17,6 +17,37 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
   });
   const [loading, setLoading] = useState(false);
   const [extraFields, setExtraFields] = useState({});
+  const [productTypes, setProductTypes] = useState([]);
+  const [isProductTypeDolu, setIsProductTypeDolu] = useState(false);
+
+  useEffect(() => {
+    // Product types'ı yükle
+    const fetchProductTypes = async () => {
+      try {
+        const data = await stockService.getProductTypes();
+        setProductTypes(data || []);
+      } catch (error) {
+        console.error('Error fetching product types:', error);
+      }
+    };
+    fetchProductTypes();
+  }, []);
+
+  useEffect(() => {
+    // Ürün tipi "dolu" mu kontrol et
+    if (category?.productTypeId && productTypes.length > 0) {
+      const productType = productTypes.find(pt => pt.id === category.productTypeId);
+      const isDolu = productType?.name?.toLowerCase() === 'dolu';
+      setIsProductTypeDolu(isDolu);
+      
+      // Eğer "dolu" ise ve yeni ürün ekleniyorsa, stock'u 1 olarak ayarla
+      if (isDolu && !product) {
+        setFormData(prev => ({ ...prev, stock: '1' }));
+      }
+    } else {
+      setIsProductTypeDolu(false);
+    }
+  }, [category?.productTypeId, productTypes, product]);
 
   useEffect(() => {
     if (product) {
@@ -44,7 +75,8 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.diameter || !formData.length || !formData.weight || !formData.stock) {
+    // Eğer ürün tipi "dolu" değilse stock zorunlu kontrolü yap
+    if (!formData.diameter || !formData.length || !formData.weight || (!isProductTypeDolu && !formData.stock)) {
       toast.error('Lütfen zorunlu alanları doldurunuz');
       return;
     }
@@ -58,7 +90,7 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
         length: parseFloat(formData.length),
         weight: parseFloat(formData.weight),
         purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : 0,
-        stock: parseInt(formData.stock),
+        stock: isProductTypeDolu ? 1 : parseInt(formData.stock),
         fields: extraFields,
       };
 
@@ -161,20 +193,22 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stok Miktarı <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                className="input-field"
-                required
-                step="1"
-                min="0"
-              />
-            </div>
+            {!isProductTypeDolu && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stok Miktarı <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  className="input-field"
+                  required
+                  step="1"
+                  min="0"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

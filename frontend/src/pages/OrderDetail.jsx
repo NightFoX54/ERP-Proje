@@ -17,6 +17,7 @@ const OrderDetail = () => {
   const [branches, setBranches] = useState([]);
   const [categories, setCategories] = useState({}); // categoryId -> categoryName map
   const [categoryDetails, setCategoryDetails] = useState({}); // categoryId -> full category data
+  const [productTypes, setProductTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showReadyModal, setShowReadyModal] = useState(false);
@@ -33,6 +34,10 @@ const OrderDetail = () => {
     try {
       setLoading(true);
       console.log('[OrderDetail] Fetching order with id:', id);
+      
+      // ProductTypes'ı yükle
+      const productTypesData = await stockService.getProductTypes();
+      setProductTypes(productTypesData || []);
       
       const branchesData = await branchService.getBranches();
       setBranches(branchesData || []);
@@ -112,6 +117,14 @@ const OrderDetail = () => {
     if (branchId === '0') return 'Admin';
     const branch = branches.find(b => b.id === branchId);
     return branch?.name || 'Bilinmeyen';
+  };
+
+  const getProductTypeName = (categoryId) => {
+    if (!categoryId || !categoryDetails[categoryId]) return null;
+    const category = categoryDetails[categoryId];
+    if (!category.productTypeId) return null;
+    const productType = productTypes.find(pt => pt.id === category.productTypeId);
+    return productType?.name || null;
   };
 
   const handleStatusUpdate = async (newStatus) => {
@@ -442,14 +455,52 @@ const OrderDetail = () => {
                     const quantity = item.quantity || 0;
                     const categoryName = categories[item.productCategoryId] || 'Bilinmeyen';
                     
+                    // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight hariç)
+                    const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight'];
+                    const formatFieldValue = (key, value) => {
+                      // İç çap alanlarını tespit et
+                      const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                      const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                              normalizedKey.includes('innerdiameter') ||
+                                              normalizedKey.includes('iççap') ||
+                                              normalizedKey === 'icap' ||
+                                              normalizedKey === 'innerdiam';
+                      
+                      // Eğer iç çap ise ve değer sayısal ise mm ekle
+                      if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
+                        return `${value}mm`;
+                      }
+                      return value;
+                    };
+                    
+                    const extraFields = Object.entries(item)
+                      .filter(([key]) => !excludedFields.includes(key))
+                      .map(([key, value]) => {
+                        if (value === null || value === undefined || value === '') return null;
+                        // Key'i daha okunabilir hale getir
+                        const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                        const formattedValue = formatFieldValue(key, value);
+                        return { key: formattedKey, value: formattedValue };
+                      })
+                      .filter(field => field !== null);
+                    
                     return (
                       <tr key={index} className="hover:bg-gradient-to-r hover:from-primary-50/30 hover:to-transparent transition-all duration-200">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
                           <div>
                             <p className="font-bold text-primary-700 mb-1">{categoryName}</p>
                             <p className="font-semibold">Çap: {diameter}mm</p>
                             {length && <p className="text-xs text-gray-500">Uzunluk: {length}</p>}
                             {weight && <p className="text-xs text-gray-500">Ağırlık: {weight}</p>}
+                            {extraFields.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {extraFields.map((field, fieldIndex) => (
+                                  <p key={fieldIndex} className="text-xs text-gray-500">
+                                    {field.key}: {field.value}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -535,7 +586,7 @@ const OrderDetail = () => {
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Hazır Onayı - Kesim Bilgileri</h2>
+                  <h2 className="text-2xl font-bold text-gray-900">Hazır Onayı - Stok Bilgileri</h2>
                   <button
                     onClick={() => setShowReadyModal(false)}
                     className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -548,7 +599,7 @@ const OrderDetail = () => {
               <div className="p-6 space-y-6">
                 {/* Order Items with Product Selection */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Sipariş Ürünleri ve Kesim Kaynağı</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Sipariş Ürünleri ve Stok Kaynağı</h3>
                   <div className="space-y-6">
                     {order.orderItems?.map((item, index) => {
                       const diameter = item.diameter || '-';
@@ -559,6 +610,80 @@ const OrderDetail = () => {
                       const products = availableProducts[index] || [];
                       const isLoading = loadingProducts[index];
                       const itemSelectedProducts = selectedProducts[index] || [];
+                      const productTypeName = getProductTypeName(item.productCategoryId);
+                      const isBoru = productTypeName?.toLowerCase() === 'boru';
+                      const isDolu = productTypeName?.toLowerCase() === 'dolu';
+
+                      // Etiketleri ürün tipine göre belirle
+                      const sourceLabel = isBoru ? 'Stok Kaynağı' : 'Kesim Kaynağı';
+                      const quantityLabel = isBoru ? 'Verilen Adet (parça)' : 'Kesilen Miktar (parça)';
+                      const weightLabel = isBoru ? 'Toplam Teslim Edilen Ağırlık (kg)' : 'Toplam Kesilen Ağırlık (kg)';
+
+                      // Stok ürünü seçiminde gösterilecek bilgileri formatla
+                      const formatProductOption = (product) => {
+                        let text = `Stok: ${product.stock} | Uzunluk: ${product.length}mm | Ağırlık: ${product.weight ? parseFloat(product.weight).toFixed(2) : '-'}kg`;
+                        
+                        // product.fields içindeki diğer özellikleri ekle
+                        if (product.fields && typeof product.fields === 'object') {
+                          const fieldEntries = Object.entries(product.fields)
+                            .filter(([key]) => key !== 'length' && key !== 'weight') // length ve weight zaten gösteriliyor
+                            .map(([key, value]) => {
+                              // Key'i daha okunabilir hale getir
+                              const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                              
+                              // İç çap alanlarını tespit et (iç çap, iççap, icCap, ic_cap, innerDiameter, inner_diameter vb.)
+                              const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                              const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                      normalizedKey.includes('innerdiameter') ||
+                                                      normalizedKey.includes('iççap') ||
+                                                      normalizedKey === 'icap' ||
+                                                      normalizedKey === 'innerdiam';
+                              
+                              // Eğer iç çap ise ve değer sayısal ise mm ekle
+                              let formattedValue = value;
+                              if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
+                                formattedValue = `${value}mm`;
+                              }
+                              
+                              return `${formattedKey}: ${formattedValue}`;
+                            });
+                          
+                          if (fieldEntries.length > 0) {
+                            text += ' | ' + fieldEntries.join(' | ');
+                          }
+                        }
+                        
+                        return text;
+                      };
+
+                      // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight hariç)
+                      const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight'];
+                      const formatFieldValue = (key, value) => {
+                        // İç çap alanlarını tespit et
+                        const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                        const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                normalizedKey.includes('innerdiameter') ||
+                                                normalizedKey.includes('iççap') ||
+                                                normalizedKey === 'icap' ||
+                                                normalizedKey === 'innerdiam';
+                        
+                        // Eğer iç çap ise ve değer sayısal ise mm ekle
+                        if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
+                          return `${value}mm`;
+                        }
+                        return value;
+                      };
+                      
+                      const extraFields = Object.entries(item)
+                        .filter(([key]) => !excludedFields.includes(key))
+                        .map(([key, value]) => {
+                          if (value === null || value === undefined || value === '') return null;
+                          // Key'i daha okunabilir hale getir
+                          const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                          const formattedValue = formatFieldValue(key, value);
+                          return { key: formattedKey, value: formattedValue };
+                        })
+                        .filter(field => field !== null);
 
                       return (
                         <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -567,6 +692,15 @@ const OrderDetail = () => {
                             <p className="text-sm text-gray-600">Çap: {diameter}mm | Sipariş Miktarı: {quantity} parça</p>
                             {length && <p className="text-xs text-gray-500">Uzunluk: {length}</p>}
                             {weight && <p className="text-xs text-gray-500">Ağırlık: {weight}</p>}
+                            {extraFields.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {extraFields.map((field, fieldIndex) => (
+                                  <p key={fieldIndex} className="text-xs text-gray-500">
+                                    {field.key}: {field.value}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           
                           {/* Selected Products for this item */}
@@ -574,7 +708,7 @@ const OrderDetail = () => {
                             {itemSelectedProducts.map((selectedProduct, productIndex) => (
                               <div key={productIndex} className="bg-white rounded-lg p-4 border border-gray-200">
                                 <div className="flex items-center justify-between mb-3">
-                                  <h4 className="font-semibold text-gray-700">Kesim Kaynağı #{productIndex + 1}</h4>
+                                  <h4 className="font-semibold text-gray-700">{sourceLabel} #{productIndex + 1}</h4>
                                   {itemSelectedProducts.length > 1 && (
                                     <button
                                       onClick={() => removeProductFromItem(index, productIndex)}
@@ -602,7 +736,7 @@ const OrderDetail = () => {
                                         <option value="">Stok ürünü seçin</option>
                                         {products.map((product) => (
                                           <option key={product.id} value={product.id}>
-                                            Stok: {product.stock} | Uzunluk: {product.length}mm | Ağırlık: {product.weight ? parseFloat(product.weight).toFixed(2) : '-'}kg
+                                            {formatProductOption(product)}
                                           </option>
                                         ))}
                                       </select>
@@ -611,7 +745,7 @@ const OrderDetail = () => {
 
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      Kesilen Miktar (parça)
+                                      {quantityLabel}
                                     </label>
                                     <input
                                       type="number"
@@ -624,7 +758,7 @@ const OrderDetail = () => {
 
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      Toplam Kesilen Ağırlık (kg)
+                                      {weightLabel}
                                     </label>
                                     <input
                                       type="number"

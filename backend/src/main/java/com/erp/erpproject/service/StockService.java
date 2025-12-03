@@ -37,7 +37,7 @@ public class StockService {
         if (!productCategory.getBranchId().equals(SecurityUtil.getCurrentBranchId()) && !SecurityUtil.isAdmin()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
-        product.setTotalPurchasePrice(product.getPurchasePrice() * product.getStock() * product.getWeight());
+        product.setKgPrice(product.getPurchasePrice() / product.getStock() / product.getWeight());
         product.setCreatedAt(new Date());
         product.setIsActive(true);
         return ResponseEntity.ok().body(productRepository.save(product));
