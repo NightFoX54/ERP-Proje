@@ -25,7 +25,6 @@ public class Orders {
     private OrderStatus orderStatus;
     private List<Map<String, Object>> orderItems;
     private List<Map<String, Object>> soldItems;
-    private Double kgPrice;
     private Double totalPrice;
     private Double totalWastageWeight;
     private Double totalWastageLength;

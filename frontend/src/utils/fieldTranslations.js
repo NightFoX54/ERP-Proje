@@ -2,6 +2,7 @@
 export const fieldTranslations = {
   weight: 'Ağırlık',
   purchasePrice: 'Satın Alma Fiyatı',
+  purchaseKgPrice: 'Satın Alma Kilo Fiyatı',
   diameter: 'Çap',
   length: 'Uzunluk',
   stock: 'Stok',
@@ -35,7 +36,7 @@ export const translateFieldName = (fieldName) => {
 };
 
 // Sabit alanlar - Bunlar Product entity'sinde zaten var, finalFields'da olmamalı
-export const fixedProductFields = ['weight', 'purchasePrice', 'diameter', 'length', 'stock'];
+export const fixedProductFields = ['weight', 'purchasePrice', 'diameter', 'length', 'stock', 'purchaseKgPrice'];
 
 // Bir alanın sabit alan olup olmadığını kontrol et
 export const isFixedField = (fieldName) => {

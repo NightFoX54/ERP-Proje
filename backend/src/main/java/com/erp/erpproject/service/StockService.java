@@ -1,7 +1,7 @@
 package com.erp.erpproject.service;
 
-import java.util.List;
 import java.util.Date;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +37,12 @@ public class StockService {
         if (!productCategory.getBranchId().equals(SecurityUtil.getCurrentBranchId()) && !SecurityUtil.isAdmin()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
-        product.setKgPrice(product.getPurchasePrice() / product.getStock() / product.getWeight());
+        if(product.getPurchasePrice() != null){
+            product.setKgPrice(product.getPurchasePrice() / product.getStock() / product.getWeight());
+        }
+        else{
+            product.setPurchasePrice(product.getKgPrice() * product.getWeight() * product.getStock());
+        }
         product.setCreatedAt(new Date());
         product.setIsActive(true);
         return ResponseEntity.ok().body(productRepository.save(product));
@@ -54,9 +59,28 @@ public class StockService {
         existingProduct.setProductCategoryId(product.getProductCategoryId());
         existingProduct.setWeight(product.getWeight());
         existingProduct.setLength(product.getLength());
-        existingProduct.setPurchasePrice(product.getPurchasePrice());
         existingProduct.setStock(product.getStock());
         existingProduct.setFields(product.getFields());
+        
+        // purchasePrice veya kgPrice'tan birini kullanarak diğerini hesapla
+        if(product.getPurchasePrice() != null && product.getPurchasePrice() != 0){
+            existingProduct.setPurchasePrice(product.getPurchasePrice());
+            existingProduct.setKgPrice(product.getPurchasePrice() / product.getStock() / product.getWeight());
+        }
+        else if(product.getKgPrice() != null && product.getKgPrice() != 0){
+            existingProduct.setKgPrice(product.getKgPrice());
+            existingProduct.setPurchasePrice(product.getKgPrice() * product.getWeight() * product.getStock());
+        }
+        else {
+            // Eğer ikisi de null ise, mevcut değerleri koru
+            if(product.getPurchasePrice() != null) {
+                existingProduct.setPurchasePrice(product.getPurchasePrice());
+            }
+            if(product.getKgPrice() != null) {
+                existingProduct.setKgPrice(product.getKgPrice());
+            }
+        }
+        
         return ResponseEntity.ok().body(productRepository.save(existingProduct));
     }
     public ResponseEntity<Void> deleteProduct(String id) {

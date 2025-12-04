@@ -24,7 +24,6 @@ const CreateOrder = () => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [kgPrice, setKgPrice] = useState(0);
   const [customerName, setCustomerName] = useState('');
   
   // Product Order Modal state
@@ -172,6 +171,7 @@ const CreateOrder = () => {
       productName: `${product.diameter || ''}mm - ${product.length || ''}mm`,
       quantity: quantity,
       branchId: selectedBranch, // Şube ID'sini sakla
+      kgPrice: '', // Her ürün için ayrı kg fiyatı
     }]);
     
     toast.success('Ürün sepete eklendi');
@@ -196,6 +196,7 @@ const CreateOrder = () => {
       productName: `${orderItem.diameter || ''}mm - ${orderItem.length ? orderItem.length + 'mm' : orderItem.weight ? parseFloat(orderItem.weight).toFixed(2) + 'kg' : ''}`,
       quantity: orderItem.quantity,
       branchId: selectedBranch, // Şube ID'sini sakla
+      kgPrice: '', // Her ürün için ayrı kg fiyatı
     }]);
     
     setShowProductModal(false);
@@ -225,6 +226,15 @@ const CreateOrder = () => {
     toast.success('Ürün sepetten çıkarıldı');
   };
 
+  const updateCartKgPrice = (index, kgPrice) => {
+    setCart(cart.map((item, idx) => {
+      if (idx === index) {
+        return { ...item, kgPrice: kgPrice };
+      }
+      return item;
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -246,14 +256,24 @@ const CreateOrder = () => {
         return;
       }
 
-      if (!kgPrice || kgPrice <= 0) {
-        toast.error('Lütfen kilogram fiyatını giriniz');
-        return;
+      // Her ürün için kg fiyatı kontrolü
+      for (let i = 0; i < cart.length; i++) {
+        const item = cart[i];
+        if (!item.kgPrice || item.kgPrice.trim() === '' || parseFloat(item.kgPrice) <= 0) {
+          toast.error(`Lütfen "${item.productName}" ürünü için kilogram fiyatını giriniz`);
+          return;
+        }
       }
 
       // Toplam fire hesapla (her zaman 0 olacak çünkü sipariş oluştururken girilmiyor)
       const totalWastageLength = 0;
       const totalWastageWeight = 0;
+
+      // Her orderItem'a kgPrice ekle
+      const orderItems = cart.map(item => ({
+        ...item.orderItem,
+        kgPrice: parseFloat(item.kgPrice),
+      }));
 
       const orderData = {
         customerName: customerName.trim(),
@@ -262,8 +282,7 @@ const CreateOrder = () => {
         orderGivenDate: new Date().toISOString(),
         orderDeliveryDate: null,
         orderStatus: 'Oluşturuldu',
-        orderItems: cart.map(item => item.orderItem),
-        kgPrice: parseFloat(kgPrice),
+        orderItems: orderItems,
         totalWastageWeight: totalWastageWeight,
         totalWastageLength: totalWastageLength,
       };
@@ -275,7 +294,6 @@ const CreateOrder = () => {
       // Formu temizle
       setCart([]);
       setCustomerName('');
-      setKgPrice(0);
       
       // Siparişler sayfasına yönlendir
       navigate('/orders');
@@ -495,8 +513,8 @@ const CreateOrder = () => {
                               {item.productName}
                             </p>
                             {item.orderItem && (() => {
-                              // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight hariç)
-                              const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight'];
+                              // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight, kgPrice hariç)
+                              const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight', 'kgPrice'];
                               const formatFieldValue = (key, value) => {
                                 // İç çap alanlarını tespit et
                                 const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
@@ -551,23 +569,40 @@ const CreateOrder = () => {
                             <FiTrash2 className="text-sm" />
                           </button>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => updateCartQuantity(index, -1)}
-                              className="p-1.5 rounded-lg border-2 border-gray-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
-                            >
-                              <FiMinus className="text-xs" />
-                            </button>
-                            <span className="text-sm font-bold w-8 text-center">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => updateCartQuantity(index, 1)}
-                              className="p-1.5 rounded-lg border-2 border-gray-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
-                            >
-                              <FiPlus className="text-xs" />
-                            </button>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => updateCartQuantity(index, -1)}
+                                className="p-1.5 rounded-lg border-2 border-gray-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
+                              >
+                                <FiMinus className="text-xs" />
+                              </button>
+                              <span className="text-sm font-bold w-8 text-center">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => updateCartQuantity(index, 1)}
+                                className="p-1.5 rounded-lg border-2 border-gray-300 hover:border-primary-400 hover:bg-primary-50 transition-all"
+                              >
+                                <FiPlus className="text-xs" />
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Kg Fiyatı (₺) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              value={item.kgPrice || ''}
+                              onChange={(e) => updateCartKgPrice(index, e.target.value)}
+                              className="input-field w-full text-sm"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00"
+                              required
+                            />
                           </div>
                         </div>
                       </div>
@@ -575,22 +610,6 @@ const CreateOrder = () => {
                   </div>
 
                   <div className="border-t pt-4">
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Kilogram Satış Fiyatı (₺) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={kgPrice}
-                        onChange={(e) => setKgPrice(e.target.value)}
-                        className="input-field w-full text-lg font-bold"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        required
-                      />
-                    </div>
-
                     <button
                       onClick={handleSubmit}
                       disabled={submitting || !selectedBranch}

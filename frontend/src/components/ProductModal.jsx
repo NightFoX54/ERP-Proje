@@ -3,8 +3,10 @@ import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
 import { FiX } from 'react-icons/fi';
 import { filterFixedFields, translateFieldName, getFieldType, isFieldRequired } from '../utils/fieldTranslations';
+import { useAuth } from '../context/AuthContext';
 
 const ProductModal = ({ category, product, onClose, onSave }) => {
+  const { isAdmin } = useAuth();
   const isEdit = !!product;
   const [formData, setFormData] = useState({
     productCategoryId: category?.id || '',
@@ -12,6 +14,7 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
     length: '',
     weight: '',
     purchasePrice: '',
+    purchaseKgPrice: '',
     stock: '',
     fields: {},
   });
@@ -51,12 +54,27 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
 
   useEffect(() => {
     if (product) {
+      // Edit modunda: Hem purchasePrice hem purchaseKgPrice'ı göster (ikisini de hesapla)
+      let displayPurchasePrice = product.purchasePrice || '';
+      let displayPurchaseKgPrice = product.kgPrice || '';
+      
+      // Eğer purchasePrice varsa ama kgPrice yoksa, kgPrice'ı hesapla
+      if (product.purchasePrice && (!product.kgPrice || product.kgPrice === 0) && product.weight && product.stock) {
+        displayPurchaseKgPrice = (product.purchasePrice / product.stock / product.weight).toFixed(2);
+      }
+      
+      // Eğer kgPrice varsa ama purchasePrice yoksa, purchasePrice'ı hesapla
+      if (product.kgPrice && (!product.purchasePrice || product.purchasePrice === 0) && product.weight && product.stock) {
+        displayPurchasePrice = (product.kgPrice * product.weight * product.stock).toFixed(2);
+      }
+      
       setFormData({
         productCategoryId: product.productCategoryId || category?.id || '',
         diameter: product.diameter || '',
         length: product.length || '',
         weight: product.weight || '',
-        purchasePrice: product.purchasePrice || '',
+        purchasePrice: displayPurchasePrice,
+        purchaseKgPrice: displayPurchaseKgPrice,
         stock: product.stock || '',
         fields: product.fields || {},
       });
@@ -81,6 +99,22 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
       return;
     }
 
+    // Satın alma fiyatı veya kg fiyatı kontrolü: sadece admin için (ikisinden biri zorunlu, ikisi birden girilemez)
+    if (isAdmin()) {
+      const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
+      const hasPurchaseKgPrice = formData.purchaseKgPrice && formData.purchaseKgPrice.trim() !== '';
+      
+      if (!hasPurchasePrice && !hasPurchaseKgPrice) {
+        toast.error('Satın alma fiyatı veya satın alma kg fiyatından birini girmeniz zorunludur');
+        return;
+      }
+      
+      if (hasPurchasePrice && hasPurchaseKgPrice) {
+        toast.error('Satın alma fiyatı ve satın alma kg fiyatından sadece birini girebilirsiniz');
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       
@@ -89,10 +123,19 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
         diameter: parseInt(formData.diameter),
         length: parseFloat(formData.length),
         weight: parseFloat(formData.weight),
-        purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : 0,
         stock: isProductTypeDolu ? 1 : parseInt(formData.stock),
         fields: extraFields,
       };
+
+      // Eğer admin ise ve purchasePrice girildiyse onu gönder, yoksa kgPrice gönder
+      if (isAdmin()) {
+        const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
+        if (hasPurchasePrice) {
+          productData.purchasePrice = parseFloat(formData.purchasePrice);
+        } else {
+          productData.kgPrice = parseFloat(formData.purchaseKgPrice);
+        }
+      }
 
       if (isEdit) {
         await stockService.updateProduct(product.id, productData);
@@ -210,24 +253,73 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Satın Alma Fiyatı (₺)
-              </label>
-              <input
-                type="number"
-                value={formData.purchasePrice}
-                onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
-                className="input-field"
-                step="0.01"
-                min="0"
-              />
-            </div>
+            {/* Fiyat alanları sadece admin için göster */}
+            {isAdmin() && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Satın Alma Fiyatı (₺)
+                    {!isEdit && <span className="text-red-500 ml-1">*</span>}
+                    {!isEdit && <span className="text-gray-500 text-xs ml-2">(veya kg fiyatı)</span>}
+                    {isEdit && <span className="text-gray-500 text-xs ml-2">(sadece görüntüleme)</span>}
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.purchasePrice}
+                    onChange={(e) => {
+                      if (!isEdit) {
+                        const value = e.target.value;
+                        setFormData({ 
+                          ...formData, 
+                          purchasePrice: value,
+                          // Eğer purchasePrice giriliyorsa purchaseKgPrice'ı temizle
+                          purchaseKgPrice: value ? '' : formData.purchaseKgPrice
+                        });
+                      }
+                    }}
+                    className="input-field"
+                    step="0.01"
+                    min="0"
+                    disabled={isEdit || !!formData.purchaseKgPrice}
+                    readOnly={isEdit}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Satın Alma Kg Fiyatı (₺/kg)
+                    {!isEdit && <span className="text-red-500 ml-1">*</span>}
+                    {!isEdit && <span className="text-gray-500 text-xs ml-2">(veya toplam fiyat)</span>}
+                    {isEdit && <span className="text-gray-500 text-xs ml-2">(sadece görüntüleme)</span>}
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.purchaseKgPrice}
+                    onChange={(e) => {
+                      if (!isEdit) {
+                        const value = e.target.value;
+                        setFormData({ 
+                          ...formData, 
+                          purchaseKgPrice: value,
+                          // Eğer purchaseKgPrice giriliyorsa purchasePrice'ı temizle
+                          purchasePrice: value ? '' : formData.purchasePrice
+                        });
+                      }
+                    }}
+                    className="input-field"
+                    step="0.01"
+                    min="0"
+                    disabled={isEdit || !!formData.purchasePrice}
+                    readOnly={isEdit}
+                  />
+                </div>
+              </>
+            )}
 
             {/* Extra Fields from Category - Sabit alanları hariç tut */}
             {category?.finalFields && Object.keys(filterFixedFields(category.finalFields)).length > 0 && 
               Object.entries(category.finalFields)
-                .filter(([key]) => !['weight', 'purchasePrice', 'diameter', 'length', 'stock'].includes(key))
+                .filter(([key]) => !['weight', 'purchasePrice', 'purchaseKgPrice', 'kgPrice', 'diameter', 'length', 'stock'].includes(key))
                 .map(([key, fieldValue]) => {
                   const fieldType = getFieldType(fieldValue);
                   const required = isFieldRequired(fieldValue);

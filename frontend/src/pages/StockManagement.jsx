@@ -370,9 +370,16 @@ const StockManagement = () => {
                           <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Stok
                           </th>
-                          <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                            Fiyat
-                          </th>
+                          {isAdmin() && (
+                            <>
+                              <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                Toplam Alış Fiyatı
+                              </th>
+                              <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                Kg Alış Fiyatı
+                              </th>
+                            </>
+                          )}
                               {/* Ekstra alanlar için dinamik kolonlar */}
                               {extraFieldKeys.map((fieldKey) => (
                                 <th
@@ -412,9 +419,30 @@ const StockManagement = () => {
                                     {product.stock || 0}
                                   </span>
                                 </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {product.purchasePrice ? `${product.purchasePrice.toFixed(2)} ₺` : '-'}
-                                </td>
+                                {isAdmin() && (
+                                  <>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {(() => {
+                                        // Toplam fiyatı hesapla
+                                        let totalPrice = product.purchasePrice;
+                                        if (!totalPrice && product.kgPrice && product.weight && product.stock) {
+                                          totalPrice = product.kgPrice * product.weight * product.stock;
+                                        }
+                                        return totalPrice ? `${totalPrice.toFixed(2)} ₺` : '-';
+                                      })()}
+                                    </td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {(() => {
+                                        // Kg fiyatını hesapla
+                                        let kgPrice = product.kgPrice;
+                                        if (!kgPrice && product.purchasePrice && product.weight && product.stock) {
+                                          kgPrice = product.purchasePrice / product.stock / product.weight;
+                                        }
+                                        return kgPrice ? `${kgPrice.toFixed(2)} ₺/kg` : '-';
+                                      })()}
+                                    </td>
+                                  </>
+                                )}
                                 {/* Ekstra alanların değerlerini göster */}
                                 {extraFieldKeys.map((fieldKey) => {
                                   const productFieldValue = product.fields?.[fieldKey];

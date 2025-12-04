@@ -25,6 +25,7 @@ const OrderDetail = () => {
   const [selectedProducts, setSelectedProducts] = useState({});
   const [availableProducts, setAvailableProducts] = useState({}); // itemIndex -> products array
   const [loadingProducts, setLoadingProducts] = useState({}); // itemIndex -> loading state
+  const [soldProducts, setSoldProducts] = useState({}); // productId -> product mapping
 
   useEffect(() => {
     fetchData();
@@ -97,6 +98,31 @@ const OrderDetail = () => {
           console.error('[OrderDetail] Error fetching categories:', error);
         }
       }
+
+      // SoldItems varsa product'ları fetch et
+      if (orderData.soldItems && orderData.soldItems.length > 0) {
+        try {
+          const productIds = [...new Set(
+            orderData.soldItems
+              .map(item => item.productId)
+              .filter(id => id)
+          )];
+          
+          if (productIds.length > 0) {
+            const allProducts = await stockService.getProducts();
+            const soldProductsMap = {};
+            productIds.forEach(productId => {
+              const product = allProducts.find(p => p.id === productId);
+              if (product) {
+                soldProductsMap[productId] = product;
+              }
+            });
+            setSoldProducts(soldProductsMap);
+          }
+        } catch (error) {
+          console.error('[OrderDetail] Error fetching sold products:', error);
+        }
+      }
       
       setLoading(false);
     } catch (error) {
@@ -158,11 +184,12 @@ const OrderDetail = () => {
       const initialSelectedProducts = {};
       order.orderItems.forEach((item, index) => {
         loadProductsForItem(item, index);
-        // Her item için başlangıçta bir boş seçim ekle
+        // Her item için başlangıçta bir boş seçim ekle (base kgPrice orderItem'dan alınır)
         initialSelectedProducts[index] = [{
           productId: '',
           quantity: '',
-          cutWeight: ''
+          cutWeight: '',
+          kgPrice: item.kgPrice || ''
         }];
       });
       setSelectedProducts(initialSelectedProducts);
@@ -191,6 +218,10 @@ const OrderDetail = () => {
   };
 
   const addProductToItem = (itemIndex) => {
+    // Base kgPrice'ı orderItem'dan al
+    const orderItem = order.orderItems[parseInt(itemIndex)];
+    const baseKgPrice = orderItem?.kgPrice || '';
+    
     setSelectedProducts(prev => ({
       ...prev,
       [itemIndex]: [
@@ -198,7 +229,8 @@ const OrderDetail = () => {
         {
           productId: '',
           quantity: '',
-          cutWeight: ''
+          cutWeight: '',
+          kgPrice: baseKgPrice
         }
       ]
     }));
@@ -249,7 +281,8 @@ const OrderDetail = () => {
               productId: selectedProduct.productId,
               quantity: parseInt(selectedProduct.quantity) || 0,
               cutLength: orderItemLength ? parseInt(orderItemLength) : null,
-              totalCutWeight: parseFloat(selectedProduct.cutWeight) || 0
+              totalCutWeight: parseFloat(selectedProduct.cutWeight) || 0,
+              kgPrice: selectedProduct.kgPrice ? parseFloat(selectedProduct.kgPrice) : null
             });
           }
         });
@@ -433,92 +466,194 @@ const OrderDetail = () => {
         {/* Order Items */}
         <div className="card">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Sipariş Detayları</h2>
-          <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Ürün
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Miktar
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {order.orderItems?.length > 0 ? (
-                  order.orderItems.map((item, index) => {
-                    // OrderItem'dan bilgileri çıkar
-                    const diameter = item.diameter || '-';
-                    const length = item.length ? `${item.length}mm` : '';
-                    const weight = item.weight ? `${parseFloat(item.weight).toFixed(2)}kg` : '';
-                    const quantity = item.quantity || 0;
-                    const categoryName = categories[item.productCategoryId] || 'Bilinmeyen';
-                    
-                    // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight hariç)
-                    const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight'];
-                    const formatFieldValue = (key, value) => {
-                      // İç çap alanlarını tespit et
-                      const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
-                      const isInnerDiameter = normalizedKey.includes('iccap') || 
-                                              normalizedKey.includes('innerdiameter') ||
-                                              normalizedKey.includes('iççap') ||
-                                              normalizedKey === 'icap' ||
-                                              normalizedKey === 'innerdiam';
-                      
-                      // Eğer iç çap ise ve değer sayısal ise mm ekle
-                      if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
-                        return `${value}mm`;
-                      }
-                      return value;
-                    };
-                    
-                    const extraFields = Object.entries(item)
-                      .filter(([key]) => !excludedFields.includes(key))
-                      .map(([key, value]) => {
-                        if (value === null || value === undefined || value === '') return null;
-                        // Key'i daha okunabilir hale getir
-                        const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
-                        const formattedValue = formatFieldValue(key, value);
-                        return { key: formattedKey, value: formattedValue };
-                      })
-                      .filter(field => field !== null);
-                    
-                    return (
-                      <tr key={index} className="hover:bg-gradient-to-r hover:from-primary-50/30 hover:to-transparent transition-all duration-200">
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          <div>
-                            <p className="font-bold text-primary-700 mb-1">{categoryName}</p>
-                            <p className="font-semibold">Çap: {diameter}mm</p>
-                            {length && <p className="text-xs text-gray-500">Uzunluk: {length}</p>}
-                            {weight && <p className="text-xs text-gray-500">Ağırlık: {weight}</p>}
-                            {extraFields.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {extraFields.map((field, fieldIndex) => (
-                                  <p key={fieldIndex} className="text-xs text-gray-500">
-                                    {field.key}: {field.value}
-                                  </p>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className="px-2 py-1 bg-gray-100 rounded-lg font-semibold">{quantity}</span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
+          
+          {/* Sipariş Ürünleri (Order Items) */}
+          <div className="mb-6">
+            <h3 className="text-md font-semibold text-gray-800 mb-3">Sipariş Ürünleri</h3>
+            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
                   <tr>
-                    <td colSpan="2" className="px-6 py-8 text-center text-gray-500">
-                      Siparişte ürün bulunmuyor
-                    </td>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Ürün
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Miktar
+                    </th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {order.orderItems?.length > 0 ? (
+                    order.orderItems.map((item, index) => {
+                      // OrderItem'dan bilgileri çıkar
+                      const diameter = item.diameter || '-';
+                      const length = item.length ? `${item.length}mm` : '';
+                      const weight = item.weight ? `${parseFloat(item.weight).toFixed(2)}kg` : '';
+                      const quantity = item.quantity || 0;
+                      const categoryName = categories[item.productCategoryId] || 'Bilinmeyen';
+                      
+                      // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight, kgPrice hariç)
+                      const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight', 'kgPrice'];
+                      const formatFieldValue = (key, value) => {
+                        // İç çap alanlarını tespit et
+                        const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                        const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                normalizedKey.includes('innerdiameter') ||
+                                                normalizedKey.includes('iççap') ||
+                                                normalizedKey === 'icap' ||
+                                                normalizedKey === 'innerdiam';
+                        
+                        // Eğer iç çap ise ve değer sayısal ise mm ekle
+                        if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
+                          return `${value}mm`;
+                        }
+                        return value;
+                      };
+                      
+                      const extraFields = Object.entries(item)
+                        .filter(([key]) => !excludedFields.includes(key))
+                        .map(([key, value]) => {
+                          if (value === null || value === undefined || value === '') return null;
+                          // Key'i daha okunabilir hale getir
+                          const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                          const formattedValue = formatFieldValue(key, value);
+                          return { key: formattedKey, value: formattedValue };
+                        })
+                        .filter(field => field !== null);
+                      
+                      return (
+                        <tr key={index} className="hover:bg-gradient-to-r hover:from-primary-50/30 hover:to-transparent transition-all duration-200">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            <div>
+                              <p className="font-bold text-primary-700 mb-1">{categoryName}</p>
+                              <p className="font-semibold">Çap: {diameter}mm</p>
+                              {length && <p className="text-xs text-gray-500">Uzunluk: {length}</p>}
+                              {weight && <p className="text-xs text-gray-500">Ağırlık: {weight}</p>}
+                              {item.kgPrice && (
+                                <p className="text-xs text-gray-500">Kilo Fiyatı: {parseFloat(item.kgPrice).toFixed(2)} ₺/kg</p>
+                              )}
+                              {extraFields.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {extraFields.map((field, fieldIndex) => (
+                                    <p key={fieldIndex} className="text-xs text-gray-500">
+                                      {field.key}: {field.value}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span className="px-2 py-1 bg-gray-100 rounded-lg font-semibold">{quantity}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="2" className="px-6 py-8 text-center text-gray-500">
+                        Siparişte ürün bulunmuyor
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* Teslim Edilen Ürünler (Sold Items) - Sadece Hazır veya Çıktı durumunda göster */}
+          {(order.orderStatus === 'Hazır' || order.orderStatus === 'Çıktı') && order.soldItems && order.soldItems.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-300">
+              <h3 className="text-md font-semibold text-gray-800 mb-3">Teslim Edilen Ürünler</h3>
+              <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gradient-to-r from-green-50 to-green-100/50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Ürün
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Satılan Ağırlık (kg)
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Kilo Fiyatı (₺/kg)
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Toplam Fiyat (₺)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {order.soldItems.map((item, index) => {
+                      // ProductId'den product bilgilerini al
+                      const product = soldProducts[item.productId];
+                      const diameter = product?.diameter || '-';
+                      const categoryName = product?.productCategoryId ? (categories[product.productCategoryId] || 'Bilinmeyen') : 'Bilinmeyen';
+                      
+                      // Product fields'dan ekstra bilgileri al
+                      const formatFieldValue = (key, value) => {
+                        const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                        const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                normalizedKey.includes('innerdiameter') ||
+                                                normalizedKey.includes('iççap') ||
+                                                normalizedKey === 'icap' ||
+                                                normalizedKey === 'innerdiam';
+                        
+                        if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
+                          return `${value}mm`;
+                        }
+                        return value;
+                      };
+                      
+                      const extraFields = product?.fields ? Object.entries(product.fields)
+                        .filter(([key, value]) => value !== null && value !== undefined && value !== '')
+                        .map(([key, value]) => {
+                          const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                          const formattedValue = formatFieldValue(key, value);
+                          return { key: formattedKey, value: formattedValue };
+                        })
+                        .filter(field => field !== null) : [];
+                      
+                      const totalSoldWeight = item.totalSoldWeight || 0;
+                      const kgPrice = item.kgPrice || 0;
+                      const totalPrice = item.totalPrice || 0;
+                      
+                      return (
+                        <tr key={index} className="hover:bg-gradient-to-r hover:from-green-50/30 hover:to-transparent transition-all duration-200">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            <div>
+                              <p className="font-bold text-green-700 mb-1">{categoryName}</p>
+                              <p className="font-semibold">Çap: {diameter}mm</p>
+                              {extraFields.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {extraFields.map((field, fieldIndex) => (
+                                    <p key={fieldIndex} className="text-xs text-gray-500">
+                                      {field.key}: {field.value}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span className="px-2 py-1 bg-green-100 rounded-lg font-semibold text-green-800">
+                              {parseFloat(totalSoldWeight).toFixed(2)} kg
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {parseFloat(kgPrice).toFixed(2)} ₺/kg
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                            {parseFloat(totalPrice).toFixed(2)} ₺
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           
           {/* Total Price */}
           {order.totalPrice && (
@@ -656,8 +791,8 @@ const OrderDetail = () => {
                         return text;
                       };
 
-                      // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight hariç)
-                      const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight'];
+                      // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight, kgPrice hariç)
+                      const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight', 'kgPrice'];
                       const formatFieldValue = (key, value) => {
                         // İç çap alanlarını tespit et
                         const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
@@ -692,6 +827,9 @@ const OrderDetail = () => {
                             <p className="text-sm text-gray-600">Çap: {diameter}mm | Sipariş Miktarı: {quantity} parça</p>
                             {length && <p className="text-xs text-gray-500">Uzunluk: {length}</p>}
                             {weight && <p className="text-xs text-gray-500">Ağırlık: {weight}</p>}
+                            {item.kgPrice && (
+                              <p className="text-xs text-gray-500">Kilo Fiyatı: {parseFloat(item.kgPrice).toFixed(2)} ₺/kg</p>
+                            )}
                             {extraFields.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {extraFields.map((field, fieldIndex) => (
@@ -767,6 +905,20 @@ const OrderDetail = () => {
                                       onChange={(e) => updateProductData(index, productIndex, 'cutWeight', e.target.value)}
                                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                       placeholder="0.00"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Kilo Fiyatı (₺/kg) <span className="text-gray-500 text-xs">(Sipariş: {item.kgPrice ? parseFloat(item.kgPrice).toFixed(2) : '-'} ₺/kg)</span>
+                                    </label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={selectedProduct.kgPrice || ''}
+                                      onChange={(e) => updateProductData(index, productIndex, 'kgPrice', e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                      placeholder={item.kgPrice ? parseFloat(item.kgPrice).toFixed(2) : "0.00"}
                                     />
                                   </div>
                                 </div>

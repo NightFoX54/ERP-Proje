@@ -12,5 +12,6 @@ public class CuttingInfoDto {
     private Integer quantity;
     private Integer cutLength;
     private Double totalCutWeight;
+    private Double kgPrice;
 }
 

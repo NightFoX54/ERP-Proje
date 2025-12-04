@@ -1,5 +1,6 @@
 package com.erp.erpproject.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -13,9 +14,9 @@ import com.erp.erpproject.model.Orders.OrderStatus;
 import com.erp.erpproject.model.Product;
 import com.erp.erpproject.model.ProductType;
 import com.erp.erpproject.repository.OrdersRepository;
+import com.erp.erpproject.repository.ProductCategoriesRepository;
 import com.erp.erpproject.repository.ProductRepository;
 import com.erp.erpproject.repository.ProductTypeRepository;
-import com.erp.erpproject.repository.ProductCategoriesRepository;
 
 @Service
 public class OrderService {
@@ -61,6 +62,18 @@ public class OrderService {
             if (order.getTotalWastageLength() == null) {
                 order.setTotalWastageLength(0.0);
             }
+            if (order.getTotalSaleWeight() == null) {
+                order.setTotalSaleWeight(0.0);
+            }
+            if (order.getTotalSaleLength() == null) {
+                order.setTotalSaleLength(0.0);
+            }
+            if (order.getSoldItems() == null) {
+                order.setSoldItems(new ArrayList<Map<String, Object>>());
+            }
+            if(order.getTotalPrice() == null) {
+                order.setTotalPrice(0.0);
+            }
             for (CuttingInfoDto cuttingInfo : cutting.getCuttingInfo()) {
                 Product product = productRepository.findById(cuttingInfo.getProductId()).orElse(null);
                 ProductType productType = productTypeRepository.findById(productCategoriesRepository.findById(product.getProductCategoryId()).orElse(null).getProductTypeId()).orElse(null);
@@ -94,7 +107,7 @@ public class OrderService {
                             product.setIsActive(false);
                         }
                         order.setTotalSaleLength(order.getTotalSaleLength() + cutLength);
-                                            order.setTotalWastageWeight(order.getTotalWastageWeight() + wastageWeight);
+                        order.setTotalWastageWeight(order.getTotalWastageWeight() + wastageWeight);
                     order.setTotalWastageLength(order.getTotalWastageLength() + wastageLength.doubleValue());
                     }
                     else{
@@ -108,10 +121,10 @@ public class OrderService {
                     // Null-safe toplama
                     order.setTotalSaleWeight(order.getTotalSaleWeight() + cuttingInfo.getTotalCutWeight());
 
-                    order.getSoldItems().add(Map.of("productId", product.getId(), "totalSoldWeight", cuttingInfo.getTotalCutWeight(), "kgPrice", order.getKgPrice(), "totalPrice", cuttingInfo.getTotalCutWeight() * order.getKgPrice()));
+                    order.getSoldItems().add(Map.of("productId", product.getId(), "totalSoldWeight", cuttingInfo.getTotalCutWeight(), "kgPrice", cuttingInfo.getKgPrice(), "totalPrice", cuttingInfo.getTotalCutWeight() * cuttingInfo.getKgPrice()));
+                    order.setTotalPrice(order.getTotalPrice() + cuttingInfo.getTotalCutWeight() * cuttingInfo.getKgPrice());
                 }
             }
-            order.setTotalPrice(order.getTotalSaleWeight() * order.getKgPrice());
             updateOrderStatus(id, "Hazır");
             return ordersRepository.save(order);
         }
