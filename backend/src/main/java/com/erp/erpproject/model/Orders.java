@@ -2,6 +2,7 @@ package com.erp.erpproject.model;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Date;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -20,8 +21,8 @@ public class Orders {
     private String customerName;
     private String orderGivenBranchId;
     private String orderDeliveryBranchId;
-    private String orderGivenDate;
-    private String orderDeliveryDate;
+    private Date orderGivenDate;
+    private Date orderDeliveryDate;
     private OrderStatus orderStatus;
     private List<Map<String, Object>> orderItems;
     private List<Map<String, Object>> soldItems;

@@ -95,10 +95,11 @@ public class OrderService {
                     // r (m) = diameter/2/1000 = diameter/2000
                     // h (m) = wastageLength/1000
                     // Ağırlık (kg) = π * (diameter/2000)² * (wastageLength/1000) * 7850
+                    Double wastageWeight = 0.0;
                     if(productType.getName().equals("Dolu")) {
                         Double wastageLengthM = wastageLength / 1000.0;
                         Double diameterM = product.getDiameter() / 2000.0;
-                        Double wastageWeight = wastageLengthM * diameterM * diameterM * Math.PI * 7850.0;
+                        wastageWeight = wastageLengthM * diameterM * diameterM * Math.PI * 7850.0;
                         
                         Integer cutLength = cuttingInfo.getCutLength() * cuttingInfo.getQuantity();
                         product.setLength(product.getLength() - wastageLength - cutLength);
@@ -121,7 +122,10 @@ public class OrderService {
                     // Null-safe toplama
                     order.setTotalSaleWeight(order.getTotalSaleWeight() + cuttingInfo.getTotalCutWeight());
 
-                    order.getSoldItems().add(Map.of("productId", product.getId(), "totalSoldWeight", cuttingInfo.getTotalCutWeight(), "kgPrice", cuttingInfo.getKgPrice(), "totalPrice", cuttingInfo.getTotalCutWeight() * cuttingInfo.getKgPrice()));
+                    if(productType.getName().equals("Dolu"))
+                        order.getSoldItems().add(Map.of("productId", product.getId(), "totalSoldWeight", cuttingInfo.getTotalCutWeight(), "kgPrice", cuttingInfo.getKgPrice(), "totalPrice", cuttingInfo.getTotalCutWeight() * cuttingInfo.getKgPrice(), "wastageWeight", wastageWeight, "wastageLength", (double)wastageLength, "cutLength", (double)cuttingInfo.getCutLength(), "cutQuantity", cuttingInfo.getQuantity()));
+                    else
+                        order.getSoldItems().add(Map.of("productId", product.getId(), "totalSoldWeight", cuttingInfo.getTotalCutWeight(), "kgPrice", cuttingInfo.getKgPrice(), "totalPrice", cuttingInfo.getTotalCutWeight() * cuttingInfo.getKgPrice(), "wastageWeight", wastageWeight, "wastageLength", (double)wastageLength, "quantity", cuttingInfo.getQuantity()));
                     order.setTotalPrice(order.getTotalPrice() + cuttingInfo.getTotalCutWeight() * cuttingInfo.getKgPrice());
                 }
             }

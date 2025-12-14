@@ -1,5 +1,6 @@
 package com.erp.erpproject.repository;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,4 +16,5 @@ public interface ProductRepository extends MongoRepository<Product, String> {
     List<Product> findAllByProductCategoryId(String productCategoryId);
     void deleteAllByProductCategoryId(String productCategoryId);
     List<Product> findAllByProductCategoryIdAndDiameter(String productCategoryId, Double diameter);
+    List<Product> findAllByCreatedAtBetween(Date startDate, Date endDate);
 }

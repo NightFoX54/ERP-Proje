@@ -1,5 +1,7 @@
 com\erp\erpproject\ErpprojectApplication.class
 com\erp\erpproject\controller\OrderController.class
+com\erp\erpproject\dto\StatisticsSoldTotalDTO.class
+com\erp\erpproject\service\StatisticsService.class
 com\erp\erpproject\controller\AuthController.class
 com\erp\erpproject\repository\ProductTypeRepository.class
 com\erp\erpproject\config\JwtProperties.class
@@ -9,7 +11,9 @@ com\erp\erpproject\security\JwtAuthenticationFilter.class
 com\erp\erpproject\model\Branches.class
 com\erp\erpproject\service\AuthService.class
 com\erp\erpproject\service\JwtService.class
+com\erp\erpproject\dto\PurchasedProductStatisticsDto.class
 com\erp\erpproject\model\Orders.class
+com\erp\erpproject\controller\StatisticsController.class
 com\erp\erpproject\repository\BranchesRepository.class
 com\erp\erpproject\model\Accounts$AccountType.class
 com\erp\erpproject\dto\CuttingInfoDto.class
@@ -22,10 +26,12 @@ com\erp\erpproject\service\OrderService.class
 com\erp\erpproject\dto\LoginRegisterResponseDto.class
 com\erp\erpproject\dto\LoginRequestDto.class
 com\erp\erpproject\dto\RegiterRequestDto.class
+com\erp\erpproject\dto\DateRangeDto.class
 com\erp\erpproject\repository\ProductRepository.class
 com\erp\erpproject\model\ProductType.class
 com\erp\erpproject\dto\OrderCuttingDto.class
 com\erp\erpproject\controller\BranchController.class
+com\erp\erpproject\dto\StatisticsPurchaseTotalDTO.class
 com\erp\erpproject\controller\StockController.class
 com\erp\erpproject\repository\OrdersRepository.class
 com\erp\erpproject\service\BranchService.class
@@ -35,3 +41,4 @@ com\erp\erpproject\model\Orders$OrderStatus.class
 com\erp\erpproject\model\Accounts.class
 com\erp\erpproject\dto\OrderStatusDto.class
 com\erp\erpproject\dto\ProductCategoryDto.class
+com\erp\erpproject\dto\StatisticsSoldProductsDto.class

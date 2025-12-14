@@ -45,6 +45,8 @@ public class StockService {
         }
         product.setCreatedAt(new Date());
         product.setIsActive(true);
+        product.setPurchaseLength(product.getLength());
+        product.setPurchaseWeight(product.getWeight());
         return ResponseEntity.ok().body(productRepository.save(product));
     }
     public ResponseEntity<Product> updateProduct(String id, Product product) {

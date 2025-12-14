@@ -449,6 +449,12 @@ const StockManagement = () => {
                                   const fieldData = extraFields[fieldKey];
                                   const fieldType = getFieldType(fieldData);
                                   
+                                  // İç çap alanını tespit et
+                                  const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                  const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                          normalizedKey.includes('innerdiameter') ||
+                                                          normalizedKey.includes('iççap');
+                                  
                                   // Değeri formatla
                                   let displayValue = '-';
                                   if (productFieldValue !== undefined && productFieldValue !== null && productFieldValue !== '') {
@@ -462,6 +468,11 @@ const StockManagement = () => {
                                         : parseInt(productFieldValue).toString();
                                     } else {
                                       displayValue = String(productFieldValue);
+                                    }
+                                    
+                                    // Eğer iç çap ise ve değer sayısal ise mm ekle
+                                    if (isInnerDiameter && !isNaN(productFieldValue) && productFieldValue !== null && productFieldValue !== '') {
+                                      displayValue += ' mm';
                                     }
                                   }
 
@@ -512,6 +523,7 @@ const StockManagement = () => {
           <ProductModal
             category={categoryDetails}
             product={editingProduct}
+            canManage={canManage}
             onClose={() => {
               setShowProductModal(false);
               setEditingProduct(null);

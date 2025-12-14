@@ -10,7 +10,8 @@ import {
   FiLogOut,
   FiMenu,
   FiX,
-  FiBell
+  FiBell,
+  FiBarChart2
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 
@@ -35,6 +36,7 @@ const Layout = ({ children }) => {
     { path: '/dashboard', icon: FiHome, label: 'Ana Sayfa' },
     { path: '/stock', icon: FiPackage, label: 'Stok Yönetimi' },
     { path: '/orders', icon: FiShoppingCart, label: 'Siparişler' },
+    { path: '/statistics', icon: FiBarChart2, label: 'İstatistikler' },
   ];
 
   if (isAdmin()) {

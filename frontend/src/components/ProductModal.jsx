@@ -5,7 +5,7 @@ import { FiX } from 'react-icons/fi';
 import { filterFixedFields, translateFieldName, getFieldType, isFieldRequired } from '../utils/fieldTranslations';
 import { useAuth } from '../context/AuthContext';
 
-const ProductModal = ({ category, product, onClose, onSave }) => {
+const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
   const { isAdmin } = useAuth();
   const isEdit = !!product;
   const [formData, setFormData] = useState({
@@ -99,8 +99,8 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
       return;
     }
 
-    // Satın alma fiyatı veya kg fiyatı kontrolü: sadece admin için (ikisinden biri zorunlu, ikisi birden girilemez)
-    if (isAdmin()) {
+    // Satın alma fiyatı veya kg fiyatı kontrolü: admin veya stok yönetimi yetkisi olanlar için (ikisinden biri zorunlu, ikisi birden girilemez)
+    if (canManage) {
       const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
       const hasPurchaseKgPrice = formData.purchaseKgPrice && formData.purchaseKgPrice.trim() !== '';
       
@@ -127,8 +127,8 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
         fields: extraFields,
       };
 
-      // Eğer admin ise ve purchasePrice girildiyse onu gönder, yoksa kgPrice gönder
-      if (isAdmin()) {
+      // Eğer stok yönetimi yetkisi varsa ve purchasePrice girildiyse onu gönder, yoksa kgPrice gönder
+      if (canManage) {
         const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
         if (hasPurchasePrice) {
           productData.purchasePrice = parseFloat(formData.purchasePrice);
@@ -253,8 +253,8 @@ const ProductModal = ({ category, product, onClose, onSave }) => {
               </div>
             )}
 
-            {/* Fiyat alanları sadece admin için göster */}
-            {isAdmin() && (
+            {/* Fiyat alanları stok yönetimi yetkisi olanlar için göster */}
+            {canManage && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

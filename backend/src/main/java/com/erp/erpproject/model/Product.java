@@ -22,4 +22,6 @@ public class Product {
     private Double kgPrice;
     private Boolean isActive;
     private Date createdAt;
+    private Double purchaseLength;
+    private Double purchaseWeight;
 }
