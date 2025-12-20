@@ -7,6 +7,7 @@ import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
 import { FiTrendingUp, FiTrendingDown, FiPackage, FiShoppingCart, FiDollarSign, FiBarChart2, FiCalendar, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import Loading from '../components/Loading';
+import { translateFieldName, getFieldType } from '../utils/fieldTranslations';
 
 const Statistics = () => {
   const { user, isAdmin } = useAuth();
@@ -572,6 +573,20 @@ const Statistics = () => {
                                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                   Toplam Fiyat
                                                 </th>
+                                                {/* Fields kolonları - tüm ürünlerden unique field key'lerini topla */}
+                                                {(() => {
+                                                  const allFieldKeys = new Set();
+                                                  products.forEach(product => {
+                                                    if (product.fields && typeof product.fields === 'object') {
+                                                      Object.keys(product.fields).forEach(key => allFieldKeys.add(key));
+                                                    }
+                                                  });
+                                                  return Array.from(allFieldKeys).map(fieldKey => (
+                                                    <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                      {translateFieldName(fieldKey)}
+                                                    </th>
+                                                  ));
+                                                })()}
                                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                   Tarih
                                                 </th>
@@ -583,6 +598,15 @@ const Statistics = () => {
                                                   (product.purchaseWeight && product.totalQuantity && product.purchaseTotalPrice 
                                                     ? product.purchaseTotalPrice / (product.purchaseWeight * product.totalQuantity) 
                                                     : 0);
+                                                
+                                                // Tüm field key'lerini topla
+                                                const allFieldKeys = new Set();
+                                                products.forEach(p => {
+                                                  if (p.fields && typeof p.fields === 'object') {
+                                                    Object.keys(p.fields).forEach(key => allFieldKeys.add(key));
+                                                  }
+                                                });
+                                                
                                                 return (
                                                   <tr key={index} className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-200">
                                                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
@@ -605,6 +629,39 @@ const Statistics = () => {
                                                     <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                                                       {formatCurrency(product.purchaseTotalPrice)}
                                                     </td>
+                                                    {/* Fields değerlerini göster */}
+                                                    {Array.from(allFieldKeys).map(fieldKey => {
+                                                      const fieldValue = product.fields?.[fieldKey];
+                                                      let displayValue = '-';
+                                                      
+                                                      if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+                                                        if (typeof fieldValue === 'number') {
+                                                          // İç çap kontrolü
+                                                          const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                          const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                                                  normalizedKey.includes('innerdiameter') ||
+                                                                                  normalizedKey.includes('iççap');
+                                                          
+                                                          if (Number.isInteger(fieldValue)) {
+                                                            displayValue = fieldValue.toString();
+                                                          } else {
+                                                            displayValue = fieldValue.toFixed(2);
+                                                          }
+                                                          
+                                                          if (isInnerDiameter) {
+                                                            displayValue += ' mm';
+                                                          }
+                                                        } else {
+                                                          displayValue = String(fieldValue);
+                                                        }
+                                                      }
+                                                      
+                                                      return (
+                                                        <td key={fieldKey} className="px-4 py-3 text-sm text-gray-900">
+                                                          {displayValue}
+                                                        </td>
+                                                      );
+                                                    })}
                                                     <td className="px-4 py-3 text-sm text-gray-500">
                                                       {formatDate(product.createdAt)}
                                                     </td>
@@ -846,37 +903,94 @@ const Statistics = () => {
                                                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                             Kg Fiyatı
                                                           </th>
+                                                          {/* Fields kolonları - tüm ürünlerden unique field key'lerini topla */}
+                                                          {(() => {
+                                                            const allFieldKeys = new Set();
+                                                            products.forEach(product => {
+                                                              if (product.product?.fields && typeof product.product.fields === 'object') {
+                                                                Object.keys(product.product.fields).forEach(key => allFieldKeys.add(key));
+                                                              }
+                                                            });
+                                                            return Array.from(allFieldKeys).map(fieldKey => (
+                                                              <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                                {translateFieldName(fieldKey)}
+                                                              </th>
+                                                            ));
+                                                          })()}
                                                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                             Tarih
                                                           </th>
                                                         </tr>
                                                       </thead>
                                                       <tbody className="bg-white divide-y divide-gray-100">
-                                                        {products.map((product, index) => (
-                                                          <tr key={index} className="hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-amber-50/50 transition-all duration-200">
-                                                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                                              {product.product?.diameter ? `${product.product.diameter} mm` : '-'}
-                                                              {product.product?.length && ` x ${product.product.length} mm`}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-sm text-gray-900">
-                                                              {formatWeight(product.totalSoldWeight)}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-sm text-gray-900">
-                                                              {formatWeight(product.wastageWeight)}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                                                              {formatCurrency(product.totalPrice)}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-sm">
-                                                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                                                                {formatCurrency(product.kgPrice)}/kg
-                                                              </span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-sm text-gray-500">
-                                                              {formatDate(product.createdAt)}
-                                                            </td>
-                                                          </tr>
-                                                        ))}
+                                                        {products.map((product, index) => {
+                                                          // Tüm field key'lerini topla
+                                                          const allFieldKeys = new Set();
+                                                          products.forEach(p => {
+                                                            if (p.product?.fields && typeof p.product.fields === 'object') {
+                                                              Object.keys(p.product.fields).forEach(key => allFieldKeys.add(key));
+                                                            }
+                                                          });
+                                                          
+                                                          return (
+                                                            <tr key={index} className="hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-amber-50/50 transition-all duration-200">
+                                                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                                {product.product?.diameter ? `${product.product.diameter} mm` : '-'}
+                                                                {product.product?.length && ` x ${product.product.length} mm`}
+                                                              </td>
+                                                              <td className="px-4 py-3 text-sm text-gray-900">
+                                                                {formatWeight(product.totalSoldWeight)}
+                                                              </td>
+                                                              <td className="px-4 py-3 text-sm text-gray-900">
+                                                                {formatWeight(product.wastageWeight)}
+                                                              </td>
+                                                              <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                                                {formatCurrency(product.totalPrice)}
+                                                              </td>
+                                                              <td className="px-4 py-3 text-sm">
+                                                                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                                                                  {formatCurrency(product.kgPrice)}/kg
+                                                                </span>
+                                                              </td>
+                                                              {/* Fields değerlerini göster */}
+                                                              {Array.from(allFieldKeys).map(fieldKey => {
+                                                                const fieldValue = product.product?.fields?.[fieldKey];
+                                                                let displayValue = '-';
+                                                                
+                                                                if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+                                                                  if (typeof fieldValue === 'number') {
+                                                                    // İç çap kontrolü
+                                                                    const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                                    const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                                                            normalizedKey.includes('innerdiameter') ||
+                                                                                            normalizedKey.includes('iççap');
+                                                                    
+                                                                    if (Number.isInteger(fieldValue)) {
+                                                                      displayValue = fieldValue.toString();
+                                                                    } else {
+                                                                      displayValue = fieldValue.toFixed(2);
+                                                                    }
+                                                                    
+                                                                    if (isInnerDiameter) {
+                                                                      displayValue += ' mm';
+                                                                    }
+                                                                  } else {
+                                                                    displayValue = String(fieldValue);
+                                                                  }
+                                                                }
+                                                                
+                                                                return (
+                                                                  <td key={fieldKey} className="px-4 py-3 text-sm text-gray-900">
+                                                                    {displayValue}
+                                                                  </td>
+                                                                );
+                                                              })}
+                                                              <td className="px-4 py-3 text-sm text-gray-500">
+                                                                {formatDate(product.createdAt)}
+                                                              </td>
+                                                            </tr>
+                                                          );
+                                                        })}
                                                       </tbody>
                                                     </table>
                                                   </div>

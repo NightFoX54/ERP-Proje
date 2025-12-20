@@ -5,12 +5,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    proxy: {
+    // Proxy sadece development için
+    proxy: process.env.NODE_ENV === 'development' ? {
       '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
+          target: 'http://localhost:8080',
+          changeOrigin: true,
       }
-    }
+    } : undefined
   }
 })
 

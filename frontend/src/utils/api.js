@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://arasproje.duckdns.org';
+
+// Debug: API URL'ini console'a yazdır
+console.log('[API Config] API_BASE_URL:', API_BASE_URL);
+console.log('[API Config] VITE_API_URL env:', import.meta.env.VITE_API_URL);
 
 // Axios instance oluştur
 const api = axios.create({

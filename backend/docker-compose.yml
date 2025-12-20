@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend:
+    image: mberkay54/erpproject-backend:latest
+    container_name: erpproject-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATA_MONGODB_URI=${SPRING_DATA_MONGODB_URI:-mongodb+srv://arikanmberkay:6XKbchdUE2ElF5Z8@kafeinproje.dtym1nn.mongodb.net/erpdb?retryWrites=true&w=majority&appName=KafeinProje}
+      - JWT_SECRET=${JWT_SECRET:-UUtaQlZaSFNWSVhUUUdCUkREQVlWWUhTTEhDV1lNQkRQSFRVSU9DSVdUVlBESkhTSk9VWkFQVUZXRFFQQk1XRA==}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+    restart: unless-stopped
+    networks:
+      - erp-network
+
+networks:
+  erp-network:
+    driver: bridge

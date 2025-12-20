@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
 
 import com.erp.erpproject.dto.PurchasedProductStatisticsDto;
 import com.erp.erpproject.dto.StatisticsPurchaseTotalDTO;
@@ -21,10 +21,10 @@ import com.erp.erpproject.model.Orders;
 import com.erp.erpproject.model.Product;
 import com.erp.erpproject.model.ProductCategories;
 import com.erp.erpproject.repository.BranchesRepository;
+import com.erp.erpproject.repository.OrdersRepository;
 import com.erp.erpproject.repository.ProductCategoriesRepository;
 import com.erp.erpproject.repository.ProductRepository;
 import com.erp.erpproject.repository.ProductTypeRepository;
-import com.erp.erpproject.repository.OrdersRepository;
 import com.erp.erpproject.security.UserPrincipal;
 
 @Service
@@ -164,6 +164,9 @@ public class StatisticsService {
                 result.get(order.getOrderDeliveryBranchId()).put(order.getCustomerName(), new HashMap<>());
             }
             logger.info("Customer Name: " + order.getCustomerName());
+            if(order.getSoldItems() == null) {
+                continue;
+            }
             for (Map<String, Object> soldItem : order.getSoldItems()) {
                 logger.info("Sold Item: " + soldItem);
                 Product product = productRepository.findById( (String) soldItem.get("productId")).orElse(null);
