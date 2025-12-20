@@ -1,5 +1,7 @@
 package com.erp.erpproject.config;
 
+import java.util.Arrays;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -17,8 +19,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.erp.erpproject.security.JwtAuthenticationFilter;
 
 import lombok.RequiredArgsConstructor;
-
-import java.util.Arrays;
 
 /**
  * Security Configuration with JWT Authentication
@@ -65,10 +65,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // Vercel production URL ve localhost development URL'leri
+        configuration.setAllowedOrigins(Arrays.asList(
+            "https://aras-erp.vercel.app",
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173"
+        ));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L); // Preflight cache için 1 saat
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
