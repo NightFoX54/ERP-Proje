@@ -353,6 +353,17 @@ const StockManagement = () => {
                         ? filterFixedFields(categoryDetails.finalFields)
                         : {};
                       const extraFieldKeys = Object.keys(extraFields);
+                      
+                      // İç çap field'ını tespit et ve ayır
+                      const isInnerDiameterField = (fieldKey) => {
+                        const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                        return normalizedKey.includes('iccap') || 
+                               normalizedKey.includes('innerdiameter') ||
+                               normalizedKey.includes('iççap');
+                      };
+                      
+                      const innerDiameterKey = extraFieldKeys.find(isInnerDiameterField);
+                      const otherFieldKeys = extraFieldKeys.filter(key => !isInnerDiameterField(key));
 
                       return (
                         <table className="min-w-full divide-y divide-gray-100">
@@ -361,6 +372,12 @@ const StockManagement = () => {
                           <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Çap
                           </th>
+                          {/* İç çap kolonu - çap'tan hemen sonra */}
+                          {innerDiameterKey && (
+                            <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              {translateFieldName(innerDiameterKey)}
+                            </th>
+                          )}
                           <th className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             Uzunluk
                           </th>
@@ -380,8 +397,8 @@ const StockManagement = () => {
                               </th>
                             </>
                           )}
-                              {/* Ekstra alanlar için dinamik kolonlar */}
-                              {extraFieldKeys.map((fieldKey) => (
+                              {/* Diğer ekstra alanlar için dinamik kolonlar (iç çap hariç) */}
+                              {otherFieldKeys.map((fieldKey) => (
                                 <th
                                   key={fieldKey}
                                   className="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
@@ -397,11 +414,47 @@ const StockManagement = () => {
                             </tr>
                           </thead>
                       <tbody className="bg-white divide-y divide-gray-100">
-                        {products.map((product) => (
+                        {products.map((product) => {
+                          // İç çap değerini formatla
+                          const getInnerDiameterValue = () => {
+                            if (!innerDiameterKey) return '-';
+                            const productFieldValue = product.fields?.[innerDiameterKey];
+                            const fieldData = extraFields[innerDiameterKey];
+                            const fieldType = getFieldType(fieldData);
+                            
+                            let displayValue = '-';
+                            if (productFieldValue !== undefined && productFieldValue !== null && productFieldValue !== '') {
+                              if (fieldType === 'double') {
+                                displayValue = typeof productFieldValue === 'number' 
+                                  ? productFieldValue.toFixed(2) 
+                                  : parseFloat(productFieldValue).toFixed(2);
+                              } else if (fieldType === 'integer') {
+                                displayValue = typeof productFieldValue === 'number' 
+                                  ? productFieldValue.toString() 
+                                  : parseInt(productFieldValue).toString();
+                              } else {
+                                displayValue = String(productFieldValue);
+                              }
+                              
+                              if (!isNaN(productFieldValue) && productFieldValue !== null && productFieldValue !== '') {
+                                displayValue += ' mm';
+                              }
+                            }
+                            
+                            return displayValue;
+                          };
+                          
+                          return (
                           <tr key={product.id} className="hover:bg-gradient-to-r hover:from-primary-50/50 hover:to-transparent transition-all duration-200 hover:shadow-sm">
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                   {product.diameter || '-'} mm
                                 </td>
+                                {/* İç çap değeri - çap'tan hemen sonra */}
+                                {innerDiameterKey && (
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {getInnerDiameterValue()}
+                                  </td>
+                                )}
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                                   {product.length || '-'} mm
                                 </td>
@@ -443,17 +496,11 @@ const StockManagement = () => {
                                     </td>
                                   </>
                                 )}
-                                {/* Ekstra alanların değerlerini göster */}
-                                {extraFieldKeys.map((fieldKey) => {
+                                {/* Diğer ekstra alanların değerlerini göster (iç çap hariç) */}
+                                {otherFieldKeys.map((fieldKey) => {
                                   const productFieldValue = product.fields?.[fieldKey];
                                   const fieldData = extraFields[fieldKey];
                                   const fieldType = getFieldType(fieldData);
-                                  
-                                  // İç çap alanını tespit et
-                                  const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
-                                  const isInnerDiameter = normalizedKey.includes('iccap') || 
-                                                          normalizedKey.includes('innerdiameter') ||
-                                                          normalizedKey.includes('iççap');
                                   
                                   // Değeri formatla
                                   let displayValue = '-';
@@ -468,11 +515,6 @@ const StockManagement = () => {
                                         : parseInt(productFieldValue).toString();
                                     } else {
                                       displayValue = String(productFieldValue);
-                                    }
-                                    
-                                    // Eğer iç çap ise ve değer sayısal ise mm ekle
-                                    if (isInnerDiameter && !isNaN(productFieldValue) && productFieldValue !== null && productFieldValue !== '') {
-                                      displayValue += ' mm';
                                     }
                                   }
 
@@ -506,7 +548,8 @@ const StockManagement = () => {
                                   </td>
                                 )}
                               </tr>
-                            ))}
+                            );
+                          })}
                           </tbody>
                         </table>
                       );

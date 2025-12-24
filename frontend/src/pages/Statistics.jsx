@@ -282,8 +282,8 @@ const Statistics = () => {
                 <div className="space-y-6">
                   {/* Total Statistics Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Purchased Total Price */}
-                    {purchasedTotal && (
+                    {/* Purchased Total Price - Sadece Admin */}
+                    {purchasedTotal && isAdmin() && (
                       <div className="card hover:shadow-strong transition-all duration-300 transform hover:-translate-y-1 border-l-4 border-l-blue-500">
                         <div className="flex items-center justify-between">
                           <div>
@@ -333,8 +333,8 @@ const Statistics = () => {
                       </div>
                     )}
 
-                    {/* Sold Total Price */}
-                    {soldTotal && (
+                    {/* Sold Total Price - Sadece Admin */}
+                    {soldTotal && isAdmin() && (
                       <div className="card hover:shadow-strong transition-all duration-300 transform hover:-translate-y-1 border-l-4 border-l-purple-500">
                         <div className="flex items-center justify-between">
                           <div>
@@ -383,31 +383,6 @@ const Statistics = () => {
                         </div>
                       </div>
                     )}
-                  </div>
-
-                  {/* Summary */}
-                  <div className="card">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Özet</h2>
-                    <div className="space-y-3">
-                      {purchasedTotal && soldTotal && (
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="text-gray-600">Kar Marjı</span>
-                          <span className="font-semibold text-green-600">
-                            {soldTotal.totalPrice && purchasedTotal.totalPurchasePrice
-                              ? formatCurrency(soldTotal.totalPrice - purchasedTotal.totalPurchasePrice)
-                              : '-'}
-                          </span>
-                        </div>
-                      )}
-                      {soldTotal && (
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-600">Net Satış Ağırlığı</span>
-                          <span className="font-semibold text-gray-900">
-                            {formatWeight(soldTotal.totalSoldWeight)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
@@ -558,6 +533,27 @@ const Statistics = () => {
                                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                   Çap
                                                 </th>
+                                                {/* İç çap kolonu - çap'tan hemen sonra */}
+                                                {(() => {
+                                                  const allFieldKeys = new Set();
+                                                  products.forEach(product => {
+                                                    if (product.fields && typeof product.fields === 'object') {
+                                                      Object.keys(product.fields).forEach(key => allFieldKeys.add(key));
+                                                    }
+                                                  });
+                                                  const isInnerDiameterField = (fieldKey) => {
+                                                    const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                    return normalizedKey.includes('iccap') || 
+                                                           normalizedKey.includes('innerdiameter') ||
+                                                           normalizedKey.includes('iççap');
+                                                  };
+                                                  const innerDiameterKey = Array.from(allFieldKeys).find(isInnerDiameterField);
+                                                  return innerDiameterKey ? (
+                                                    <th key={innerDiameterKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                      {translateFieldName(innerDiameterKey)}
+                                                    </th>
+                                                  ) : null;
+                                                })()}
                                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                   Uzunluk
                                                 </th>
@@ -573,7 +569,7 @@ const Statistics = () => {
                                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                   Toplam Fiyat
                                                 </th>
-                                                {/* Fields kolonları - tüm ürünlerden unique field key'lerini topla */}
+                                                {/* Diğer Fields kolonları (iç çap hariç) */}
                                                 {(() => {
                                                   const allFieldKeys = new Set();
                                                   products.forEach(product => {
@@ -581,11 +577,19 @@ const Statistics = () => {
                                                       Object.keys(product.fields).forEach(key => allFieldKeys.add(key));
                                                     }
                                                   });
-                                                  return Array.from(allFieldKeys).map(fieldKey => (
-                                                    <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                      {translateFieldName(fieldKey)}
-                                                    </th>
-                                                  ));
+                                                  const isInnerDiameterField = (fieldKey) => {
+                                                    const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                    return normalizedKey.includes('iccap') || 
+                                                           normalizedKey.includes('innerdiameter') ||
+                                                           normalizedKey.includes('iççap');
+                                                  };
+                                                  return Array.from(allFieldKeys)
+                                                    .filter(key => !isInnerDiameterField(key))
+                                                    .map(fieldKey => (
+                                                      <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                        {translateFieldName(fieldKey)}
+                                                      </th>
+                                                    ));
                                                 })()}
                                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                   Tarih
@@ -607,11 +611,58 @@ const Statistics = () => {
                                                   }
                                                 });
                                                 
+                                                // İç çap field'ını tespit et
+                                                const isInnerDiameterField = (fieldKey) => {
+                                                  const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                  return normalizedKey.includes('iccap') || 
+                                                         normalizedKey.includes('innerdiameter') ||
+                                                         normalizedKey.includes('iççap');
+                                                };
+                                                const innerDiameterKey = Array.from(allFieldKeys).find(isInnerDiameterField);
+                                                const otherFieldKeys = Array.from(allFieldKeys).filter(key => !isInnerDiameterField(key));
+                                                
+                                                // İç çap değerini formatla
+                                                const getInnerDiameterValue = () => {
+                                                  if (!innerDiameterKey) return '-';
+                                                  const fieldValue = product.fields?.[innerDiameterKey];
+                                                  if (fieldValue === undefined || fieldValue === null || fieldValue === '') return '-';
+                                                  
+                                                  let displayValue = '-';
+                                                  if (typeof fieldValue === 'number') {
+                                                    if (Number.isInteger(fieldValue)) {
+                                                      displayValue = fieldValue.toString();
+                                                    } else {
+                                                      displayValue = fieldValue.toFixed(2);
+                                                    }
+                                                    displayValue += ' mm';
+                                                  } else {
+                                                    // String değer için de sayısal kontrolü yap
+                                                    const numValue = parseFloat(fieldValue);
+                                                    if (!isNaN(numValue) && fieldValue !== '') {
+                                                      if (Number.isInteger(numValue)) {
+                                                        displayValue = numValue.toString();
+                                                      } else {
+                                                        displayValue = numValue.toFixed(2);
+                                                      }
+                                                      displayValue += ' mm';
+                                                    } else {
+                                                      displayValue = String(fieldValue);
+                                                    }
+                                                  }
+                                                  return displayValue;
+                                                };
+                                                
                                                 return (
                                                   <tr key={index} className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-200">
                                                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                                       {product.diameter ? `${product.diameter} mm` : '-'}
                                                     </td>
+                                                    {/* İç çap değeri - çap'tan hemen sonra */}
+                                                    {innerDiameterKey && (
+                                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                                        {getInnerDiameterValue()}
+                                                      </td>
+                                                    )}
                                                     <td className="px-4 py-3 text-sm text-gray-900">
                                                       {product.purchaseLength ? `${product.purchaseLength} mm` : '-'}
                                                     </td>
@@ -629,27 +680,17 @@ const Statistics = () => {
                                                     <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                                                       {formatCurrency(product.purchaseTotalPrice)}
                                                     </td>
-                                                    {/* Fields değerlerini göster */}
-                                                    {Array.from(allFieldKeys).map(fieldKey => {
+                                                    {/* Diğer Fields değerlerini göster (iç çap hariç) */}
+                                                    {otherFieldKeys.map(fieldKey => {
                                                       const fieldValue = product.fields?.[fieldKey];
                                                       let displayValue = '-';
                                                       
                                                       if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
                                                         if (typeof fieldValue === 'number') {
-                                                          // İç çap kontrolü
-                                                          const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
-                                                          const isInnerDiameter = normalizedKey.includes('iccap') || 
-                                                                                  normalizedKey.includes('innerdiameter') ||
-                                                                                  normalizedKey.includes('iççap');
-                                                          
                                                           if (Number.isInteger(fieldValue)) {
                                                             displayValue = fieldValue.toString();
                                                           } else {
                                                             displayValue = fieldValue.toFixed(2);
-                                                          }
-                                                          
-                                                          if (isInnerDiameter) {
-                                                            displayValue += ' mm';
                                                           }
                                                         } else {
                                                           displayValue = String(fieldValue);
@@ -889,7 +930,31 @@ const Statistics = () => {
                                                       <thead className="bg-gradient-to-r from-gray-50 via-gray-50 to-gray-100">
                                                         <tr>
                                                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Ürün
+                                                            Çap
+                                                          </th>
+                                                          {/* İç çap kolonu - çap'tan hemen sonra */}
+                                                          {(() => {
+                                                            const allFieldKeys = new Set();
+                                                            products.forEach(product => {
+                                                              if (product.product?.fields && typeof product.product.fields === 'object') {
+                                                                Object.keys(product.product.fields).forEach(key => allFieldKeys.add(key));
+                                                              }
+                                                            });
+                                                            const isInnerDiameterField = (fieldKey) => {
+                                                              const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                              return normalizedKey.includes('iccap') || 
+                                                                     normalizedKey.includes('innerdiameter') ||
+                                                                     normalizedKey.includes('iççap');
+                                                            };
+                                                            const innerDiameterKey = Array.from(allFieldKeys).find(isInnerDiameterField);
+                                                            return innerDiameterKey ? (
+                                                              <th key={innerDiameterKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                                {translateFieldName(innerDiameterKey)}
+                                                              </th>
+                                                            ) : null;
+                                                          })()}
+                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                            Uzunluk
                                                           </th>
                                                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                             Satış Ağırlığı
@@ -903,7 +968,7 @@ const Statistics = () => {
                                                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                             Kg Fiyatı
                                                           </th>
-                                                          {/* Fields kolonları - tüm ürünlerden unique field key'lerini topla */}
+                                                          {/* Diğer Fields kolonları (iç çap hariç) */}
                                                           {(() => {
                                                             const allFieldKeys = new Set();
                                                             products.forEach(product => {
@@ -911,11 +976,19 @@ const Statistics = () => {
                                                                 Object.keys(product.product.fields).forEach(key => allFieldKeys.add(key));
                                                               }
                                                             });
-                                                            return Array.from(allFieldKeys).map(fieldKey => (
-                                                              <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                                {translateFieldName(fieldKey)}
-                                                              </th>
-                                                            ));
+                                                            const isInnerDiameterField = (fieldKey) => {
+                                                              const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                              return normalizedKey.includes('iccap') || 
+                                                                     normalizedKey.includes('innerdiameter') ||
+                                                                     normalizedKey.includes('iççap');
+                                                            };
+                                                            return Array.from(allFieldKeys)
+                                                              .filter(key => !isInnerDiameterField(key))
+                                                              .map(fieldKey => (
+                                                                <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                                  {translateFieldName(fieldKey)}
+                                                                </th>
+                                                              ));
                                                           })()}
                                                           <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                             Tarih
@@ -932,11 +1005,60 @@ const Statistics = () => {
                                                             }
                                                           });
                                                           
+                                                          // İç çap field'ını tespit et
+                                                          const isInnerDiameterField = (fieldKey) => {
+                                                            const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                                                            return normalizedKey.includes('iccap') || 
+                                                                   normalizedKey.includes('innerdiameter') ||
+                                                                   normalizedKey.includes('iççap');
+                                                          };
+                                                          const innerDiameterKey = Array.from(allFieldKeys).find(isInnerDiameterField);
+                                                          const otherFieldKeys = Array.from(allFieldKeys).filter(key => !isInnerDiameterField(key));
+                                                          
+                                                          // İç çap değerini formatla
+                                                          const getInnerDiameterValue = () => {
+                                                            if (!innerDiameterKey) return '-';
+                                                            const fieldValue = product.product?.fields?.[innerDiameterKey];
+                                                            if (fieldValue === undefined || fieldValue === null || fieldValue === '') return '-';
+                                                            
+                                                            let displayValue = '-';
+                                                            if (typeof fieldValue === 'number') {
+                                                              if (Number.isInteger(fieldValue)) {
+                                                                displayValue = fieldValue.toString();
+                                                              } else {
+                                                                displayValue = fieldValue.toFixed(2);
+                                                              }
+                                                              displayValue += ' mm';
+                                                            } else {
+                                                              // String değer için de sayısal kontrolü yap
+                                                              const numValue = parseFloat(fieldValue);
+                                                              if (!isNaN(numValue) && fieldValue !== '') {
+                                                                if (Number.isInteger(numValue)) {
+                                                                  displayValue = numValue.toString();
+                                                                } else {
+                                                                  displayValue = numValue.toFixed(2);
+                                                                }
+                                                                displayValue += ' mm';
+                                                              } else {
+                                                                displayValue = String(fieldValue);
+                                                              }
+                                                            }
+                                                            return displayValue;
+                                                          };
+                                                          
                                                           return (
                                                             <tr key={index} className="hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-amber-50/50 transition-all duration-200">
                                                               <td className="px-4 py-3 text-sm font-medium text-gray-900">
                                                                 {product.product?.diameter ? `${product.product.diameter} mm` : '-'}
-                                                                {product.product?.length && ` x ${product.product.length} mm`}
+                                                              </td>
+                                                              {/* İç çap değeri - çap'tan hemen sonra */}
+                                                              {innerDiameterKey && (
+                                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                                  {getInnerDiameterValue()}
+                                                                </td>
+                                                              )}
+                                                              <td className="px-4 py-3 text-sm text-gray-900">
+                                                                {product.product?.purchaseLength ? `${product.product.purchaseLength} mm` : '-'}
                                                               </td>
                                                               <td className="px-4 py-3 text-sm text-gray-900">
                                                                 {formatWeight(product.totalSoldWeight)}
@@ -952,27 +1074,17 @@ const Statistics = () => {
                                                                   {formatCurrency(product.kgPrice)}/kg
                                                                 </span>
                                                               </td>
-                                                              {/* Fields değerlerini göster */}
-                                                              {Array.from(allFieldKeys).map(fieldKey => {
+                                                              {/* Diğer Fields değerlerini göster (iç çap hariç) */}
+                                                              {otherFieldKeys.map(fieldKey => {
                                                                 const fieldValue = product.product?.fields?.[fieldKey];
                                                                 let displayValue = '-';
                                                                 
                                                                 if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
                                                                   if (typeof fieldValue === 'number') {
-                                                                    // İç çap kontrolü
-                                                                    const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
-                                                                    const isInnerDiameter = normalizedKey.includes('iccap') || 
-                                                                                            normalizedKey.includes('innerdiameter') ||
-                                                                                            normalizedKey.includes('iççap');
-                                                                    
                                                                     if (Number.isInteger(fieldValue)) {
                                                                       displayValue = fieldValue.toString();
                                                                     } else {
                                                                       displayValue = fieldValue.toFixed(2);
-                                                                    }
-                                                                    
-                                                                    if (isInnerDiameter) {
-                                                                      displayValue += ' mm';
                                                                     }
                                                                   } else {
                                                                     displayValue = String(fieldValue);

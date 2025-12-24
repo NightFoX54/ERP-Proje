@@ -30,7 +30,7 @@ public class OrderService {
     private ProductCategoriesRepository productCategoriesRepository;
 
     public List<Orders> getOrders() {
-        return ordersRepository.findAll();
+        return ordersRepository.findAllByOrderByOrderGivenDateDesc();
     }
 
     public Orders createOrder(Orders order) {

@@ -44,7 +44,7 @@ public class StatisticsService {
     }
 
     public Map<String,Map<String, List<PurchasedProductStatisticsDto>>> getPurchasedProductsBetweenDates(Date startDate, Date endDate, UserPrincipal userPrincipal) {
-        List<Product> products = productRepository.findAllByCreatedAtBetween(startDate, endDate);
+        List<Product> products = productRepository.findAllByCreatedAtBetweenOrderByCreatedAtDesc(startDate, endDate);
         
         // Eğer kullanıcı BRANCH ise, sadece kendi branch'ine ait kategori ID'lerine sahip ürünleri filtrele
         if (userPrincipal != null && userPrincipal.isBranchUser()) {
@@ -80,8 +80,8 @@ public class StatisticsService {
                 purchasedProductStatisticsDto.setPurchasePrice(product.getPurchasePrice());
                 purchasedProductStatisticsDto.setPurchaseKgPrice(product.getKgPrice());
                 purchasedProductStatisticsDto.setCreatedAt(product.getCreatedAt());
-                purchasedProductStatisticsDto.setTotalQuantity(product.getStock());
-                purchasedProductStatisticsDto.setPurchaseTotalPrice(product.getPurchasePrice() * product.getStock());
+                purchasedProductStatisticsDto.setTotalQuantity(product.getPurchaseStock());
+                purchasedProductStatisticsDto.setPurchaseTotalPrice(product.getPurchasePrice());
                 purchasedProductStatisticsDtos.add(purchasedProductStatisticsDto);
 
             }
@@ -95,8 +95,8 @@ public class StatisticsService {
                 purchasedProductStatisticsDto.setPurchasePrice(product.getPurchasePrice());
                 purchasedProductStatisticsDto.setPurchaseKgPrice(product.getKgPrice());
                 purchasedProductStatisticsDto.setCreatedAt(product.getCreatedAt());
-                purchasedProductStatisticsDto.setPurchaseTotalPrice(product.getPurchasePrice() * product.getStock());
-                purchasedProductStatisticsDto.setTotalQuantity(product.getStock());
+                purchasedProductStatisticsDto.setPurchaseTotalPrice(product.getPurchasePrice());
+                purchasedProductStatisticsDto.setTotalQuantity(product.getPurchaseStock());
                 purchasedProductStatisticsDtos.add(purchasedProductStatisticsDto);
                 result.get(productCategory.getBranchId()).put(product.getProductCategoryId(), purchasedProductStatisticsDtos);
             }
@@ -146,7 +146,7 @@ public class StatisticsService {
     }
 
     public Map<String,Map<String,Map<String,List<StatisticsSoldProductsDto>>>> getSoldProductsBetweenDates(Date startDate, Date endDate, UserPrincipal userPrincipal) {
-        List<Orders> orders = ordersRepository.findAllByOrderGivenDateBetween(startDate, endDate);
+        List<Orders> orders = ordersRepository.findAllByOrderGivenDateBetweenOrderByOrderGivenDateDesc(startDate, endDate);
         if (userPrincipal != null && userPrincipal.isBranchUser()) {
             String branchId = userPrincipal.getBranchId();
             orders = orders.stream()
@@ -156,17 +156,19 @@ public class StatisticsService {
         logger.info("Orders: " + orders.size());
         Map<String,Map<String,Map<String,List<StatisticsSoldProductsDto>>>> result = new HashMap<>();
         for (Orders order : orders) {
-            if(!result.containsKey(order.getOrderDeliveryBranchId())) {
-                result.put(order.getOrderDeliveryBranchId(), new HashMap<>());
-            }
-            logger.info("Order Delivery Branch ID: " + order.getOrderDeliveryBranchId());
-            if(!result.get(order.getOrderDeliveryBranchId()).containsKey(order.getCustomerName())) {
-                result.get(order.getOrderDeliveryBranchId()).put(order.getCustomerName(), new HashMap<>());
-            }
             logger.info("Customer Name: " + order.getCustomerName());
             if(order.getSoldItems() == null) {
                 continue;
             }
+            if(!result.containsKey(order.getOrderDeliveryBranchId())) {
+                result.put(order.getOrderDeliveryBranchId(), new HashMap<>());
+            }
+            
+            logger.info("Order Delivery Branch ID: " + order.getOrderDeliveryBranchId());
+            if(!result.get(order.getOrderDeliveryBranchId()).containsKey(order.getCustomerName())) {
+                result.get(order.getOrderDeliveryBranchId()).put(order.getCustomerName(), new HashMap<>());
+            }
+           
             for (Map<String, Object> soldItem : order.getSoldItems()) {
                 logger.info("Sold Item: " + soldItem);
                 Product product = productRepository.findById( (String) soldItem.get("productId")).orElse(null);
@@ -200,7 +202,7 @@ public class StatisticsService {
     }
 
     public ResponseEntity<StatisticsSoldTotalDTO> getSoldProductsBetweenDatesTotal(Date startDate, Date endDate) {
-        List<Orders> orders = ordersRepository.findAllByOrderGivenDateBetween(startDate, endDate);
+        List<Orders> orders = ordersRepository.findAllByOrderGivenDateBetweenOrderByOrderGivenDateDesc(startDate, endDate);
         Double totalSoldWeight = orders.stream()
                 .filter(order -> order.getTotalSaleWeight() != null)
                 .mapToDouble(Orders::getTotalSaleWeight)

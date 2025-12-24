@@ -24,4 +24,5 @@ public class Product {
     private Date createdAt;
     private Double purchaseLength;
     private Double purchaseWeight;
+    private Integer purchaseStock;
 }

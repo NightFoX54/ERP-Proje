@@ -3,11 +3,9 @@ package com.erp.erpproject.controller;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,7 +18,6 @@ import com.erp.erpproject.dto.StatisticsSoldProductsDto;
 import com.erp.erpproject.dto.StatisticsSoldTotalDTO;
 import com.erp.erpproject.security.UserPrincipal;
 import com.erp.erpproject.service.StatisticsService;
-import com.erp.erpproject.util.SecurityUtil;
 
 @RestController
 @RequestMapping("api/statistics")
@@ -39,11 +36,7 @@ public class StatisticsController {
 
     @PostMapping("/purchased-products-between-dates/total")
     public ResponseEntity<StatisticsPurchaseTotalDTO> getPurchasedProductsBetweenDatesTotal(@RequestBody DateRangeDto dateRange) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if(SecurityUtil.isAdmin()){
-            return statisticsService.getPurchasedProductsBetweenDatesTotal(dateRange.getStartDate(), dateRange.getEndDate());
-        }
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return statisticsService.getPurchasedProductsBetweenDatesTotal(dateRange.getStartDate(), dateRange.getEndDate());
     }
     @PostMapping("/sold-products-between-dates")
     public Map<String,Map<String,Map<String,List<StatisticsSoldProductsDto>>>> getSoldProductsBetweenDates(@RequestBody DateRangeDto dateRange) {

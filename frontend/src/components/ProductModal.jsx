@@ -208,6 +208,43 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               />
             </div>
 
+            {/* İç çap field'ı - çap'tan hemen sonra */}
+            {(() => {
+              if (!category?.finalFields) return null;
+              
+              const filteredFields = filterFixedFields(category.finalFields);
+              const isInnerDiameterField = (fieldKey) => {
+                const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                return normalizedKey.includes('iccap') || 
+                       normalizedKey.includes('innerdiameter') ||
+                       normalizedKey.includes('iççap');
+              };
+              
+              const innerDiameterKey = Object.keys(filteredFields).find(isInnerDiameterField);
+              if (!innerDiameterKey) return null;
+              
+              const fieldValue = category.finalFields[innerDiameterKey];
+              const fieldType = getFieldType(fieldValue);
+              const required = isFieldRequired(fieldValue);
+              
+              return (
+                <div key={innerDiameterKey}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {translateFieldName(innerDiameterKey)} (mm)
+                    {required && <span className="text-red-500 ml-1">*</span>}
+                  </label>
+                  <input
+                    type={getInputType(fieldValue)}
+                    value={extraFields[innerDiameterKey] || ''}
+                    onChange={(e) => handleExtraFieldChange(innerDiameterKey, e.target.value)}
+                    className="input-field"
+                    step={fieldType === 'double' ? '0.01' : '1'}
+                    required={required}
+                  />
+                </div>
+              );
+            })()}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Uzunluk (mm) <span className="text-red-500">*</span>
@@ -316,10 +353,21 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               </>
             )}
 
-            {/* Extra Fields from Category - Sabit alanları hariç tut */}
+            {/* Extra Fields from Category - Sabit alanları ve iç çap hariç tut (iç çap zaten yukarıda gösterildi) */}
             {category?.finalFields && Object.keys(filterFixedFields(category.finalFields)).length > 0 && 
               Object.entries(category.finalFields)
-                .filter(([key]) => !['weight', 'purchasePrice', 'purchaseKgPrice', 'kgPrice', 'diameter', 'length', 'stock'].includes(key))
+                .filter(([key]) => {
+                  // Sabit alanları filtrele
+                  if (['weight', 'purchasePrice', 'purchaseKgPrice', 'kgPrice', 'diameter', 'length', 'stock'].includes(key)) {
+                    return false;
+                  }
+                  // İç çap alanını filtrele (zaten yukarıda gösterildi)
+                  const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                  const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                          normalizedKey.includes('innerdiameter') ||
+                                          normalizedKey.includes('iççap');
+                  return !isInnerDiameter;
+                })
                 .map(([key, fieldValue]) => {
                   const fieldType = getFieldType(fieldValue);
                   const required = isFieldRequired(fieldValue);
