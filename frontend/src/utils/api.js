@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://erp-proje-production.up.railway.app';
+const API_BASE_URL = 'https://erp-proje-production.up.railway.app';
 //const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 // Debug: API URL'ini console'a yazdır
