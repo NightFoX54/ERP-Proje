@@ -137,8 +137,20 @@ public class StatisticsService {
                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR);
     }
 
-    public ResponseEntity<StatisticsPurchaseTotalDTO> getPurchasedProductsBetweenDatesTotal(Date startDate, Date endDate) {
+    public ResponseEntity<StatisticsPurchaseTotalDTO> getPurchasedProductsBetweenDatesTotal(Date startDate, Date endDate, UserPrincipal userPrincipal) {
         List<Product> products = productRepository.findAllByCreatedAtBetween(startDate, endDate);
+        if (userPrincipal != null && userPrincipal.isBranchUser()) {
+            String branchId = userPrincipal.getBranchId();
+            List<ProductCategories> branchCategories = productCategoriesRepository.findAllByBranchId(branchId);
+            List<String> allowedCategoryIds = branchCategories.stream()
+                    .map(ProductCategories::getId)
+                    .collect(Collectors.toList());
+            
+            products = products.stream()
+                    .filter(product -> product.getProductCategoryId() != null && 
+                                     allowedCategoryIds.contains(product.getProductCategoryId()))
+                    .collect(Collectors.toList());
+        }
         Double totalPurchasePrice = products.stream().mapToDouble(Product::getPurchasePrice).sum();
         Double totalPurchaseWeight = products.stream().mapToDouble(Product::getPurchaseWeight).sum();
         Double totalPurchaseQuantity = products.stream().mapToDouble(Product::getStock).sum();
@@ -201,8 +213,14 @@ public class StatisticsService {
         return result;
     }
 
-    public ResponseEntity<StatisticsSoldTotalDTO> getSoldProductsBetweenDatesTotal(Date startDate, Date endDate) {
+    public ResponseEntity<StatisticsSoldTotalDTO> getSoldProductsBetweenDatesTotal(Date startDate, Date endDate, UserPrincipal userPrincipal) {
         List<Orders> orders = ordersRepository.findAllByOrderGivenDateBetweenOrderByOrderGivenDateDesc(startDate, endDate);
+        if (userPrincipal != null && userPrincipal.isBranchUser()) {
+            String branchId = userPrincipal.getBranchId();
+            orders = orders.stream()
+                    .filter(order -> order.getOrderDeliveryBranchId().equals(branchId))
+                    .collect(Collectors.toList());
+        }
         Double totalSoldWeight = orders.stream()
                 .filter(order -> order.getTotalSaleWeight() != null)
                 .mapToDouble(Orders::getTotalSaleWeight)

@@ -36,7 +36,9 @@ public class StatisticsController {
 
     @PostMapping("/purchased-products-between-dates/total")
     public ResponseEntity<StatisticsPurchaseTotalDTO> getPurchasedProductsBetweenDatesTotal(@RequestBody DateRangeDto dateRange) {
-        return statisticsService.getPurchasedProductsBetweenDatesTotal(dateRange.getStartDate(), dateRange.getEndDate());
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        return statisticsService.getPurchasedProductsBetweenDatesTotal(dateRange.getStartDate(), dateRange.getEndDate(), userPrincipal);
     }
     @PostMapping("/sold-products-between-dates")
     public Map<String,Map<String,Map<String,List<StatisticsSoldProductsDto>>>> getSoldProductsBetweenDates(@RequestBody DateRangeDto dateRange) {
@@ -46,6 +48,8 @@ public class StatisticsController {
     }
     @PostMapping("/sold-products-between-dates/total")
     public ResponseEntity<StatisticsSoldTotalDTO> getSoldProductsBetweenDatesTotal(@RequestBody DateRangeDto dateRange) {
-        return statisticsService.getSoldProductsBetweenDatesTotal(dateRange.getStartDate(), dateRange.getEndDate());
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        return statisticsService.getSoldProductsBetweenDatesTotal(dateRange.getStartDate(), dateRange.getEndDate(), userPrincipal);
     }
 }
