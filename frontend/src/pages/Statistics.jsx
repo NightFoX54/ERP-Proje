@@ -734,394 +734,254 @@ const Statistics = () => {
                       <FiShoppingCart className="mx-auto text-5xl mb-4 opacity-50" />
                       <p className="text-lg">Bu tarih aralığında satılan ürün bulunmuyor</p>
                     </div>
-                  ) : (
-                    Object.entries(soldProducts).map(([branchId, customers]) => {
-                      const isBranchExpanded = expandedBranches[branchId];
-                      const customerCount = Object.keys(customers).length;
+                  ) : (() => {
+                    // Tablo oluşturma fonksiyonu
+                    const renderTable = (items, branchName = null) => {
+                      // Tarihe göre sırala (yeniden eskiye)
+                      const sortedItems = [...items].sort((a, b) => {
+                        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                        return dateB - dateA;
+                      });
                       
-                      // Şube toplamlarını hesapla
-                      let branchTotalWeight = 0;
-                      let branchTotalPrice = 0;
-                      Object.values(customers).forEach(categories => {
-                        Object.values(categories).forEach(products => {
-                          products.forEach(product => {
-                            if (product.totalSoldWeight) branchTotalWeight += product.totalSoldWeight;
-                            if (product.totalPrice) branchTotalPrice += product.totalPrice;
+                      // Tüm field key'lerini topla
+                      const allFieldKeys = new Set();
+                      sortedItems.forEach(item => {
+                        if (item.product?.fields && typeof item.product.fields === 'object') {
+                          Object.keys(item.product.fields).forEach(key => allFieldKeys.add(key));
+                        }
+                      });
+                      
+                      // İç çap field'ını tespit et
+                      const isInnerDiameterField = (fieldKey) => {
+                        const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
+                        return normalizedKey.includes('iccap') || 
+                               normalizedKey.includes('innerdiameter') ||
+                               normalizedKey.includes('iççap');
+                      };
+                      
+                      const innerDiameterKey = Array.from(allFieldKeys).find(isInnerDiameterField);
+                      const otherFieldKeys = Array.from(allFieldKeys).filter(key => !isInnerDiameterField(key));
+                      
+                      return (
+                        <div className="card">
+                          {/* Şube Başlığı - sadece admin için ve branchName varsa */}
+                          {branchName && (
+                            <div className="mb-4 pb-4 border-b border-gray-200">
+                              <h2 className="text-xl font-bold text-gray-900">
+                                Şube: {branchName}
+                              </h2>
+                            </div>
+                          )}
+                          
+                          {/* Tablo */}
+                          <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+                            <table className="min-w-full divide-y divide-gray-100">
+                              <thead className="bg-gradient-to-r from-gray-50 via-gray-50 to-gray-100">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    Tarih
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    Müşteri
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    Ürün Adı
+                                  </th>
+                                  {/* İç çap kolonu - ürün adı'ndan sonra */}
+                                  {innerDiameterKey && (
+                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                      {translateFieldName(innerDiameterKey)}
+                                    </th>
+                                  )}
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    Dış Çap
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    adet
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    kilo
+                                  </th>
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    fiyat
+                                  </th>
+                                  {/* Diğer Fields kolonları (iç çap hariç) */}
+                                  {otherFieldKeys.map(fieldKey => (
+                                    <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                      {translateFieldName(fieldKey)}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-100">
+                                {sortedItems.map((item, index) => {
+                                  // Bu üründe hangi field'lar var?
+                                  const productFields = item.product?.fields || {};
+                                  const productFieldKeys = Object.keys(productFields);
+                                  
+                                  // İç çap değerini formatla
+                                  const getInnerDiameterValue = () => {
+                                    if (!innerDiameterKey) return null;
+                                    const fieldValue = productFields[innerDiameterKey];
+                                    if (fieldValue === undefined || fieldValue === null || fieldValue === '') return null;
+                                    
+                                    if (typeof fieldValue === 'number') {
+                                      return Number.isInteger(fieldValue) ? fieldValue.toString() : fieldValue.toFixed(2);
+                                    } else {
+                                      const numValue = parseFloat(fieldValue);
+                                      if (!isNaN(numValue) && fieldValue !== '') {
+                                        return Number.isInteger(numValue) ? numValue.toString() : numValue.toFixed(2);
+                                      }
+                                      return String(fieldValue);
+                                    }
+                                  };
+                                  
+                                  // Field değerini formatla
+                                  const getFieldValue = (fieldKey) => {
+                                    const fieldValue = productFields[fieldKey];
+                                    if (fieldValue === undefined || fieldValue === null || fieldValue === '') return null;
+                                    
+                                    if (typeof fieldValue === 'number') {
+                                      return Number.isInteger(fieldValue) ? fieldValue.toString() : fieldValue.toFixed(2);
+                                    }
+                                    return String(fieldValue);
+                                  };
+                                  
+                                  // Adet değerini al (cutQuantity veya quantity)
+                                  const quantity = item.cutQuantity || item.quantity || 0;
+                                  
+                                  return (
+                                    <tr key={index} className="hover:bg-gradient-to-r hover:from-primary-50/30 hover:to-transparent transition-all duration-200">
+                                      {/* Tarih */}
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {formatDate(item.createdAt)}
+                                      </td>
+                                      
+                                      {/* Müşteri */}
+                                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                        {item.customerName || '-'}
+                                      </td>
+                                      
+                                      {/* Ürün Adı */}
+                                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                        {getCategoryName(item.categoryId)}
+                                      </td>
+                                      
+                                      {/* İç çap - varsa göster, yoksa kırmızı */}
+                                      {innerDiameterKey && (
+                                        <td className={`px-4 py-3 text-sm ${
+                                          productFieldKeys.includes(innerDiameterKey) 
+                                            ? 'text-gray-900 bg-white' 
+                                            : 'text-gray-500 bg-red-100'
+                                        }`}>
+                                          {getInnerDiameterValue() || '-'}
+                                        </td>
+                                      )}
+                                      
+                                      {/* Dış Çap (diameter) */}
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {item.product?.diameter ? `${item.product.diameter}` : '-'}
+                                      </td>
+                                      
+                                      {/* adet */}
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {quantity}
+                                      </td>
+                                      
+                                      {/* kilo */}
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {item.totalSoldWeight ? `${parseFloat(item.totalSoldWeight).toFixed(2)}` : '-'}
+                                      </td>
+                                      
+                                      {/* fiyat */}
+                                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                                        {item.totalPrice ? `${parseFloat(item.totalPrice).toFixed(2)} ₺` : '-'}
+                                      </td>
+                                      
+                                      {/* Diğer Fields - üründe varsa normal, yoksa kırmızı */}
+                                      {otherFieldKeys.map(fieldKey => {
+                                        const hasField = productFieldKeys.includes(fieldKey);
+                                        const fieldValue = getFieldValue(fieldKey);
+                                        
+                                        return (
+                                          <td 
+                                            key={fieldKey} 
+                                            className={`px-4 py-3 text-sm ${
+                                              hasField 
+                                                ? 'text-gray-900 bg-white' 
+                                                : 'text-gray-500 bg-red-100'
+                                            }`}
+                                          >
+                                            {fieldValue || '-'}
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    };
+                    
+                    // Admin ise şube şube ayrı tablolar, değilse tek tablo
+                    if (isAdmin()) {
+                      // Admin için: Her şube için ayrı tablo
+                      const branchTables = [];
+                      
+                      Object.entries(soldProducts).forEach(([branchId, customers]) => {
+                        // Bu şubenin tüm satışlarını topla
+                        const branchItems = [];
+                        
+                        Object.entries(customers).forEach(([customerName, categories]) => {
+                          Object.entries(categories).forEach(([categoryId, products]) => {
+                            products.forEach(product => {
+                              branchItems.push({
+                                ...product,
+                                branchId,
+                                customerName,
+                                categoryId,
+                              });
+                            });
+                          });
+                        });
+                        
+                        if (branchItems.length > 0) {
+                          const branchName = getBranchName(branchId);
+                          branchTables.push(
+                            <div key={branchId} className="space-y-4">
+                              {renderTable(branchItems, branchName)}
+                            </div>
+                          );
+                        }
+                      });
+                      
+                      return <div className="space-y-6">{branchTables}</div>;
+                    } else {
+                      // Şube kullanıcısı için: Tek tablo
+                      const allSoldItems = [];
+                      
+                      Object.entries(soldProducts).forEach(([branchId, customers]) => {
+                        Object.entries(customers).forEach(([customerName, categories]) => {
+                          Object.entries(categories).forEach(([categoryId, products]) => {
+                            products.forEach(product => {
+                              allSoldItems.push({
+                                ...product,
+                                branchId,
+                                customerName,
+                                categoryId,
+                              });
+                            });
                           });
                         });
                       });
                       
-                      return (
-                        <div key={branchId} className="card overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200">
-                          {/* Şube Header */}
-                          <button
-                            onClick={() => toggleBranch(branchId)}
-                            className={`w-full flex items-center justify-between p-5 rounded-lg transition-all duration-300 ${
-                              isBranchExpanded 
-                                ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md' 
-                                : 'bg-gradient-to-r from-gray-50 to-gray-100 hover:from-purple-50 hover:to-indigo-100 text-gray-900 hover:shadow-md'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <div className={`p-2.5 rounded-xl ${isBranchExpanded ? 'bg-white/20' : 'bg-gradient-to-br from-purple-100 to-indigo-200'}`}>
-                                <FiShoppingCart className={`text-xl ${isBranchExpanded ? 'text-white' : 'text-purple-600'}`} />
-                              </div>
-                              <div className="text-left">
-                                <h3 className="text-lg font-bold">
-                                  Şube: {getBranchName(branchId)}
-                                </h3>
-                                <p className={`text-xs ${isBranchExpanded ? 'text-white/80' : 'text-gray-500'}`}>
-                                  {customerCount} müşteri
-                                </p>
-                              </div>
-                            </div>
-                            <div className={`p-2 rounded-lg transition-transform duration-300 ${isBranchExpanded ? 'bg-white/20 rotate-180' : 'bg-white/50'}`}>
-                              <FiChevronDown className={`text-xl ${isBranchExpanded ? 'text-white' : 'text-gray-600'}`} />
-                            </div>
-                          </button>
-
-                          {/* Şube Toplamı */}
-                          {isBranchExpanded && (
-                            <div className="px-5 py-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-200">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-semibold text-gray-700">Şube Toplamı:</span>
-                                <div className="flex items-center space-x-4">
-                                  <span className="text-sm font-bold text-gray-900">
-                                    {formatWeight(branchTotalWeight)}
-                                  </span>
-                                  <span className="text-sm font-bold text-purple-700">
-                                    {formatCurrency(branchTotalPrice)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Müşteriler - Accordion */}
-                          {isBranchExpanded && (
-                            <div className="mt-3 space-y-3 pl-2 animate-fade-in">
-                              {Object.entries(customers).map(([customerName, categories]) => {
-                                const customerKey = `${branchId}-${customerName}`;
-                                const isCustomerExpanded = expandedCustomers[customerKey];
-                                const categoryCount = Object.keys(categories).length;
-                                
-                                // Müşteri toplamlarını hesapla
-                                let customerTotalWeight = 0;
-                                let customerTotalPrice = 0;
-                                Object.values(categories).forEach(products => {
-                                  products.forEach(product => {
-                                    if (product.totalSoldWeight) customerTotalWeight += product.totalSoldWeight;
-                                    if (product.totalPrice) customerTotalPrice += product.totalPrice;
-                                  });
-                                });
-                                
-                                return (
-                                  <div key={customerName} className="bg-white rounded-xl border-2 border-green-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
-                                    {/* Müşteri Header */}
-                                    <button
-                                      onClick={() => toggleCustomer(branchId, customerName)}
-                                      className={`w-full flex items-center justify-between p-4 transition-all duration-300 ${
-                                        isCustomerExpanded 
-                                          ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-b-2 border-green-300' 
-                                          : 'hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50'
-                                      }`}
-                                    >
-                                      <div className="flex items-center space-x-3">
-                                        <div className={`p-2.5 rounded-lg ${isCustomerExpanded ? 'bg-gradient-to-br from-green-200 to-emerald-300' : 'bg-green-100'}`}>
-                                          <FiShoppingCart className={`text-base ${isCustomerExpanded ? 'text-green-800' : 'text-green-700'}`} />
-                                        </div>
-                                        <div className="text-left">
-                                          <h4 className="text-md font-bold text-gray-900">
-                                            Müşteri: {customerName}
-                                          </h4>
-                                          <p className="text-xs text-gray-600 font-medium">
-                                            {categoryCount} kategori
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <div className={`p-1.5 rounded-lg transition-all duration-300 ${isCustomerExpanded ? 'bg-green-200 rotate-180' : 'bg-green-100'}`}>
-                                        <FiChevronDown className={`text-sm ${isCustomerExpanded ? 'text-green-800' : 'text-green-700'}`} />
-                                      </div>
-                                    </button>
-
-                                    {/* Müşteri Toplamı */}
-                                    {isCustomerExpanded && (
-                                      <div className="px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-200">
-                                        <div className="flex justify-between items-center text-sm">
-                                          <span className="font-semibold text-gray-700">Müşteri Toplamı:</span>
-                                          <div className="flex items-center space-x-4">
-                                            <span className="font-bold text-gray-900">
-                                              {formatWeight(customerTotalWeight)}
-                                            </span>
-                                            <span className="font-bold text-green-700">
-                                              {formatCurrency(customerTotalPrice)}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Kategoriler - Accordion */}
-                                    {isCustomerExpanded && (
-                                      <div className="mt-2 space-y-2 pl-4 border-l-2 border-green-300 animate-fade-in">
-                                        {Object.entries(categories).map(([categoryId, products]) => {
-                                          const categoryKey = `${branchId}-${customerName}-${categoryId}`;
-                                          const isCategoryExpanded = expandedSoldCategories[categoryKey];
-                                          
-                                          // Kategori toplamlarını hesapla
-                                          let categoryTotalWeight = 0;
-                                          let categoryTotalPrice = 0;
-                                          products.forEach(product => {
-                                            if (product.totalSoldWeight) categoryTotalWeight += product.totalSoldWeight;
-                                            if (product.totalPrice) categoryTotalPrice += product.totalPrice;
-                                          });
-                                          
-                                          return (
-                                            <div key={categoryId} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
-                                              {/* Kategori Header */}
-                                              <button
-                                                onClick={() => toggleSoldCategory(branchId, customerName, categoryId)}
-                                                className={`w-full flex items-center justify-between p-3 transition-all duration-300 ${
-                                                  isCategoryExpanded 
-                                                    ? 'bg-gradient-to-r from-orange-50 to-amber-50 border-b border-gray-200' 
-                                                    : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-orange-50'
-                                                }`}
-                                              >
-                                                <div className="flex items-center space-x-2">
-                                                  <div className={`p-1.5 rounded-lg ${isCategoryExpanded ? 'bg-gradient-to-br from-orange-100 to-amber-200' : 'bg-gray-100'}`}>
-                                                    <FiPackage className={`text-xs ${isCategoryExpanded ? 'text-orange-700' : 'text-gray-600'}`} />
-                                                  </div>
-                                                  <div className="text-left">
-                                                    <h5 className="text-sm font-semibold text-gray-900">
-                                                      Kategori: {getCategoryName(categoryId)}
-                                                    </h5>
-                                                    <p className="text-xs text-gray-500">
-                                                      {products.length} ürün
-                                                    </p>
-                                                  </div>
-                                                </div>
-                                                <div className={`p-1 rounded-lg transition-all duration-300 ${isCategoryExpanded ? 'bg-orange-100 rotate-180' : 'bg-gray-100'}`}>
-                                                  <FiChevronDown className={`text-xs ${isCategoryExpanded ? 'text-orange-700' : 'text-gray-500'}`} />
-                                                </div>
-                                              </button>
-
-                                              {/* Kategori Toplamı */}
-                                              {isCategoryExpanded && (
-                                                <div className="px-3 py-2 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-gray-200">
-                                                  <div className="flex justify-between items-center text-xs">
-                                                    <span className="font-medium text-gray-700">Kategori Toplamı:</span>
-                                                    <div className="flex items-center space-x-3">
-                                                      <span className="font-semibold text-gray-900">
-                                                        {formatWeight(categoryTotalWeight)}
-                                                      </span>
-                                                      <span className="font-semibold text-orange-700">
-                                                        {formatCurrency(categoryTotalPrice)}
-                                                      </span>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {/* Ürünler Tablosu */}
-                                              {isCategoryExpanded && (
-                                                <div className="mt-2 p-3 animate-fade-in">
-                                                  <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
-                                                    <table className="min-w-full divide-y divide-gray-100">
-                                                      <thead className="bg-gradient-to-r from-gray-50 via-gray-50 to-gray-100">
-                                                        <tr>
-                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Çap
-                                                          </th>
-                                                          {/* İç çap kolonu - çap'tan hemen sonra */}
-                                                          {(() => {
-                                                            const allFieldKeys = new Set();
-                                                            products.forEach(product => {
-                                                              if (product.product?.fields && typeof product.product.fields === 'object') {
-                                                                Object.keys(product.product.fields).forEach(key => allFieldKeys.add(key));
-                                                              }
-                                                            });
-                                                            const isInnerDiameterField = (fieldKey) => {
-                                                              const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
-                                                              return normalizedKey.includes('iccap') || 
-                                                                     normalizedKey.includes('innerdiameter') ||
-                                                                     normalizedKey.includes('iççap');
-                                                            };
-                                                            const innerDiameterKey = Array.from(allFieldKeys).find(isInnerDiameterField);
-                                                            return innerDiameterKey ? (
-                                                              <th key={innerDiameterKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                                {translateFieldName(innerDiameterKey)}
-                                                              </th>
-                                                            ) : null;
-                                                          })()}
-                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Uzunluk
-                                                          </th>
-                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Satış Ağırlığı
-                                                          </th>
-                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Fire Ağırlığı
-                                                          </th>
-                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Toplam Fiyat
-                                                          </th>
-                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Kg Fiyatı
-                                                          </th>
-                                                          {/* Diğer Fields kolonları (iç çap hariç) */}
-                                                          {(() => {
-                                                            const allFieldKeys = new Set();
-                                                            products.forEach(product => {
-                                                              if (product.product?.fields && typeof product.product.fields === 'object') {
-                                                                Object.keys(product.product.fields).forEach(key => allFieldKeys.add(key));
-                                                              }
-                                                            });
-                                                            const isInnerDiameterField = (fieldKey) => {
-                                                              const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
-                                                              return normalizedKey.includes('iccap') || 
-                                                                     normalizedKey.includes('innerdiameter') ||
-                                                                     normalizedKey.includes('iççap');
-                                                            };
-                                                            return Array.from(allFieldKeys)
-                                                              .filter(key => !isInnerDiameterField(key))
-                                                              .map(fieldKey => (
-                                                                <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                                  {translateFieldName(fieldKey)}
-                                                                </th>
-                                                              ));
-                                                          })()}
-                                                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                                            Tarih
-                                                          </th>
-                                                        </tr>
-                                                      </thead>
-                                                      <tbody className="bg-white divide-y divide-gray-100">
-                                                        {products.map((product, index) => {
-                                                          // Tüm field key'lerini topla
-                                                          const allFieldKeys = new Set();
-                                                          products.forEach(p => {
-                                                            if (p.product?.fields && typeof p.product.fields === 'object') {
-                                                              Object.keys(p.product.fields).forEach(key => allFieldKeys.add(key));
-                                                            }
-                                                          });
-                                                          
-                                                          // İç çap field'ını tespit et
-                                                          const isInnerDiameterField = (fieldKey) => {
-                                                            const normalizedKey = fieldKey.toLowerCase().replace(/[_\s]/g, '');
-                                                            return normalizedKey.includes('iccap') || 
-                                                                   normalizedKey.includes('innerdiameter') ||
-                                                                   normalizedKey.includes('iççap');
-                                                          };
-                                                          const innerDiameterKey = Array.from(allFieldKeys).find(isInnerDiameterField);
-                                                          const otherFieldKeys = Array.from(allFieldKeys).filter(key => !isInnerDiameterField(key));
-                                                          
-                                                          // İç çap değerini formatla
-                                                          const getInnerDiameterValue = () => {
-                                                            if (!innerDiameterKey) return '-';
-                                                            const fieldValue = product.product?.fields?.[innerDiameterKey];
-                                                            if (fieldValue === undefined || fieldValue === null || fieldValue === '') return '-';
-                                                            
-                                                            let displayValue = '-';
-                                                            if (typeof fieldValue === 'number') {
-                                                              if (Number.isInteger(fieldValue)) {
-                                                                displayValue = fieldValue.toString();
-                                                              } else {
-                                                                displayValue = fieldValue.toFixed(2);
-                                                              }
-                                                              displayValue += ' mm';
-                                                            } else {
-                                                              // String değer için de sayısal kontrolü yap
-                                                              const numValue = parseFloat(fieldValue);
-                                                              if (!isNaN(numValue) && fieldValue !== '') {
-                                                                if (Number.isInteger(numValue)) {
-                                                                  displayValue = numValue.toString();
-                                                                } else {
-                                                                  displayValue = numValue.toFixed(2);
-                                                                }
-                                                                displayValue += ' mm';
-                                                              } else {
-                                                                displayValue = String(fieldValue);
-                                                              }
-                                                            }
-                                                            return displayValue;
-                                                          };
-                                                          
-                                                          return (
-                                                            <tr key={index} className="hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-amber-50/50 transition-all duration-200">
-                                                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                                                {product.product?.diameter ? `${product.product.diameter} mm` : '-'}
-                                                              </td>
-                                                              {/* İç çap değeri - çap'tan hemen sonra */}
-                                                              {innerDiameterKey && (
-                                                                <td className="px-4 py-3 text-sm text-gray-900">
-                                                                  {getInnerDiameterValue()}
-                                                                </td>
-                                                              )}
-                                                              <td className="px-4 py-3 text-sm text-gray-900">
-                                                                {product.product?.purchaseLength ? `${product.product.purchaseLength} mm` : '-'}
-                                                              </td>
-                                                              <td className="px-4 py-3 text-sm text-gray-900">
-                                                                {formatWeight(product.totalSoldWeight)}
-                                                              </td>
-                                                              <td className="px-4 py-3 text-sm text-gray-900">
-                                                                {formatWeight(product.wastageWeight)}
-                                                              </td>
-                                                              <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                                                                {formatCurrency(product.totalPrice)}
-                                                              </td>
-                                                              <td className="px-4 py-3 text-sm">
-                                                                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                                                                  {formatCurrency(product.kgPrice)}/kg
-                                                                </span>
-                                                              </td>
-                                                              {/* Diğer Fields değerlerini göster (iç çap hariç) */}
-                                                              {otherFieldKeys.map(fieldKey => {
-                                                                const fieldValue = product.product?.fields?.[fieldKey];
-                                                                let displayValue = '-';
-                                                                
-                                                                if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
-                                                                  if (typeof fieldValue === 'number') {
-                                                                    if (Number.isInteger(fieldValue)) {
-                                                                      displayValue = fieldValue.toString();
-                                                                    } else {
-                                                                      displayValue = fieldValue.toFixed(2);
-                                                                    }
-                                                                  } else {
-                                                                    displayValue = String(fieldValue);
-                                                                  }
-                                                                }
-                                                                
-                                                                return (
-                                                                  <td key={fieldKey} className="px-4 py-3 text-sm text-gray-900">
-                                                                    {displayValue}
-                                                                  </td>
-                                                                );
-                                                              })}
-                                                              <td className="px-4 py-3 text-sm text-gray-500">
-                                                                {formatDate(product.createdAt)}
-                                                              </td>
-                                                            </tr>
-                                                          );
-                                                        })}
-                                                      </tbody>
-                                                    </table>
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
+                      return renderTable(allSoldItems);
+                    }
+                  })()}
                 </div>
               )}
             </>
