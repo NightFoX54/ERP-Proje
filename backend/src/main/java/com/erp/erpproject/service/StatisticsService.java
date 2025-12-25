@@ -153,7 +153,7 @@ public class StatisticsService {
         }
         Double totalPurchasePrice = products.stream().mapToDouble(Product::getPurchasePrice).sum();
         Double totalPurchaseWeight = products.stream().mapToDouble(Product::getPurchaseWeight).sum();
-        Double totalPurchaseQuantity = products.stream().mapToDouble(Product::getStock).sum();
+        Double totalPurchaseQuantity = products.stream().mapToDouble(Product::getPurchaseStock).sum();
         return ResponseEntity.ok(new StatisticsPurchaseTotalDTO(totalPurchasePrice, totalPurchaseWeight, totalPurchaseQuantity));
     }
 
