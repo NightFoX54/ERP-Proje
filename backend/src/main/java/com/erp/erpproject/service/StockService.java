@@ -60,6 +60,7 @@ public class StockService {
         }
         Product existingProduct = productRepository.findById(id).get();
         existingProduct.setProductCategoryId(product.getProductCategoryId());
+        existingProduct.setDiameter(product.getDiameter());
         existingProduct.setWeight(product.getWeight());
         existingProduct.setLength(product.getLength());
         existingProduct.setStock(product.getStock());

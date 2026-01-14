@@ -31,6 +31,11 @@ const StockManagement = () => {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Product delete confirmation modal state
+  const [showDeleteProductModal, setShowDeleteProductModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [deleteProductLoading, setDeleteProductLoading] = useState(false);
 
   useEffect(() => {
     fetchBranches();
@@ -122,18 +127,26 @@ const StockManagement = () => {
     setShowProductModal(true);
   };
 
-  const handleDeleteProduct = async (productId) => {
-    if (!window.confirm('Bu ürünü silmek istediğinize emin misiniz?')) {
-      return;
-    }
+  const handleDeleteProductClick = (productId) => {
+    setProductToDelete(productId);
+    setShowDeleteProductModal(true);
+  };
 
+  const handleConfirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+
+    setDeleteProductLoading(true);
     try {
-      await stockService.deleteProduct(productId);
+      await stockService.deleteProduct(productToDelete);
       toast.success('Ürün başarıyla silindi');
+      setShowDeleteProductModal(false);
+      setProductToDelete(null);
       fetchCategoryDetails();
     } catch (error) {
       console.error('Error deleting product:', error);
       toast.error('Ürün silinirken bir hata oluştu');
+    } finally {
+      setDeleteProductLoading(false);
     }
   };
 
@@ -538,7 +551,7 @@ const StockManagement = () => {
                                         <FiEdit2 className="text-lg" />
                                       </button>
                                       <button
-                                        onClick={() => handleDeleteProduct(product.id)}
+                                        onClick={() => handleDeleteProductClick(product.id)}
                                         className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
                                         title="Sil"
                                       >
@@ -584,7 +597,7 @@ const StockManagement = () => {
           />
         )}
 
-        {/* Delete Confirmation Modal */}
+        {/* Delete Category Confirmation Modal */}
         <ConfirmationModal
           isOpen={showDeleteConfirmModal}
           onClose={() => {
@@ -605,6 +618,24 @@ const StockManagement = () => {
           cancelText="İptal"
           confirmButtonClass="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           isLoading={deleteLoading}
+        />
+
+        {/* Delete Product Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showDeleteProductModal}
+          onClose={() => {
+            if (!deleteProductLoading) {
+              setShowDeleteProductModal(false);
+              setProductToDelete(null);
+            }
+          }}
+          onConfirm={handleConfirmDeleteProduct}
+          title="Ürünü Sil"
+          message="Bu ürünü silmek istediğinize emin misiniz?"
+          confirmText="Sil"
+          cancelText="İptal"
+          confirmButtonClass="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={deleteProductLoading}
         />
       </div>
     </Layout>

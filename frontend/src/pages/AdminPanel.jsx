@@ -28,6 +28,11 @@ const AdminPanel = () => {
   const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
+  
+  // Delete branch confirmation modal state
+  const [showDeleteBranchModal, setShowDeleteBranchModal] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState(null);
+  const [deleteBranchLoading, setDeleteBranchLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'branches') {
@@ -106,18 +111,27 @@ const AdminPanel = () => {
     }
   };
 
-  const handleDeleteBranch = async (id) => {
-    if (!window.confirm('Bu şubeyi silmek istediğinize emin misiniz?')) {
-      return;
-    }
+  const handleDeleteBranchClick = (branchId) => {
+    const branch = branches.find(b => b.id === branchId);
+    setBranchToDelete({ id: branchId, name: branch?.name || '' });
+    setShowDeleteBranchModal(true);
+  };
 
+  const handleConfirmDeleteBranch = async () => {
+    if (!branchToDelete) return;
+
+    setDeleteBranchLoading(true);
     try {
-      await branchService.deleteBranch(id);
+      await branchService.deleteBranch(branchToDelete.id);
       toast.success('Şube başarıyla silindi');
+      setShowDeleteBranchModal(false);
+      setBranchToDelete(null);
       fetchBranches();
     } catch (error) {
       console.error('Error deleting branch:', error);
       toast.error('Şube silinirken bir hata oluştu');
+    } finally {
+      setDeleteBranchLoading(false);
     }
   };
 
@@ -261,8 +275,9 @@ const AdminPanel = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
-                                onClick={() => handleDeleteBranch(branch.id)}
-                                className="text-red-600 hover:text-red-900 ml-4"
+                                onClick={() => handleDeleteBranchClick(branch.id)}
+                                className="text-red-600 hover:text-red-900 ml-4 transition-colors"
+                                title="Şubeyi Sil"
                               >
                                 <FiTrash2 className="inline" />
                               </button>
@@ -485,6 +500,24 @@ const AdminPanel = () => {
             </div>
           </div>
         )}
+
+        {/* Delete Branch Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showDeleteBranchModal}
+          onClose={() => {
+            if (!deleteBranchLoading) {
+              setShowDeleteBranchModal(false);
+              setBranchToDelete(null);
+            }
+          }}
+          onConfirm={handleConfirmDeleteBranch}
+          title="Şubeyi Sil"
+          message={`"${branchToDelete?.name || ''}" şubesini silmek istediğinize emin misiniz?`}
+          confirmText="Sil"
+          cancelText="İptal"
+          confirmButtonClass="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={deleteBranchLoading}
+        />
 
         {/* Delete User Confirmation Modal */}
         <ConfirmationModal

@@ -788,15 +788,15 @@ const Statistics = () => {
                                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                     Ürün Adı
                                   </th>
-                                  {/* İç çap kolonu - ürün adı'ndan sonra */}
+                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                    Dış Çap
+                                  </th>
+                                  {/* İç çap kolonu - dış çap'tan sonra */}
                                   {innerDiameterKey && (
                                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                       {translateFieldName(innerDiameterKey)}
                                     </th>
                                   )}
-                                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                                    Dış Çap
-                                  </th>
                                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                     adet
                                   </th>
@@ -868,6 +868,11 @@ const Statistics = () => {
                                         {getCategoryName(item.categoryId)}
                                       </td>
                                       
+                                      {/* Dış Çap (diameter) */}
+                                      <td className="px-4 py-3 text-sm text-gray-900">
+                                        {item.product?.diameter ? `${item.product.diameter}` : '-'}
+                                      </td>
+                                      
                                       {/* İç çap - varsa göster, yoksa kırmızı */}
                                       {innerDiameterKey && (
                                         <td className={`px-4 py-3 text-sm ${
@@ -878,11 +883,6 @@ const Statistics = () => {
                                           {getInnerDiameterValue() || '-'}
                                         </td>
                                       )}
-                                      
-                                      {/* Dış Çap (diameter) */}
-                                      <td className="px-4 py-3 text-sm text-gray-900">
-                                        {item.product?.diameter ? `${item.product.diameter}` : '-'}
-                                      </td>
                                       
                                       {/* adet */}
                                       <td className="px-4 py-3 text-sm text-gray-900">

@@ -8,6 +8,7 @@ import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
 import { FiArrowLeft, FiCheck, FiX, FiClock, FiPlus, FiTrash2 } from 'react-icons/fi';
 import Loading from '../components/Loading';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const OrderDetail = () => {
   const { id } = useParams();
@@ -21,6 +22,11 @@ const OrderDetail = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showReadyModal, setShowReadyModal] = useState(false);
+  
+  // Status update confirmation modal state
+  const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(false);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState(null);
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
   // itemIndex -> [{ productId, quantity, cutWeight }]
   const [selectedProducts, setSelectedProducts] = useState({});
   const [availableProducts, setAvailableProducts] = useState({}); // itemIndex -> products array
@@ -153,27 +159,33 @@ const OrderDetail = () => {
     return productType?.name || null;
   };
 
-  const handleStatusUpdate = async (newStatus) => {
+  const handleStatusUpdate = (newStatus) => {
     if (newStatus === 'Hazır') {
       // Hazır onayı için modal aç
       setShowReadyModal(true);
       return;
     }
 
-    if (!window.confirm('Bu işlemi gerçekleştirmek istediğinize emin misiniz?')) {
-      return;
-    }
+    // Diğer durum güncellemeleri için onay modalı göster
+    setPendingStatusUpdate(newStatus);
+    setShowStatusUpdateModal(true);
+  };
 
+  const handleConfirmStatusUpdate = async () => {
+    if (!pendingStatusUpdate) return;
+
+    setStatusUpdateLoading(true);
     try {
-      setUpdating(true);
-      await orderService.updateOrderStatus(id, newStatus);
+      await orderService.updateOrderStatus(id, pendingStatusUpdate);
       toast.success('Sipariş durumu güncellendi');
+      setShowStatusUpdateModal(false);
+      setPendingStatusUpdate(null);
       fetchData();
     } catch (error) {
       console.error('Error updating order status:', error);
       toast.error('Sipariş durumu güncellenirken bir hata oluştu');
     } finally {
-      setUpdating(false);
+      setStatusUpdateLoading(false);
     }
   };
 
@@ -247,11 +259,29 @@ const OrderDetail = () => {
     });
   };
 
-  const updateProductData = (itemIndex, productIndex, field, value) => {
+  const updateProductData = (itemIndex, productIndex, field, value, products) => {
     setSelectedProducts(prev => {
       const newProducts = [...(prev[itemIndex] || [])];
+      const currentProduct = newProducts[productIndex];
+      
+      // quantity (adet) için stok kontrolü
+      if (field === 'quantity' && currentProduct?.productId && products) {
+        const selectedStockProduct = products.find(p => p.id === currentProduct.productId);
+        
+        if (selectedStockProduct && selectedStockProduct.stock !== undefined) {
+          const maxStock = parseInt(selectedStockProduct.stock);
+          const inputQuantity = parseInt(value);
+          
+          // Eğer girilen adet stoktan fazlaysa, stoka eşitle
+          if (!isNaN(inputQuantity) && inputQuantity > maxStock) {
+            toast.error(`Girilen adet stoktan (${maxStock} adet) fazla olamaz`);
+            value = maxStock.toString();
+          }
+        }
+      }
+      
       newProducts[productIndex] = {
-        ...newProducts[productIndex],
+        ...currentProduct,
         [field]: value
       };
       return {
@@ -263,6 +293,21 @@ const OrderDetail = () => {
 
   const handleConfirmReady = async () => {
     try {
+      // Validasyon: Tüm order item'lar için en az bir ürün seçilmiş olmalı
+      if (order?.orderItems) {
+        for (let i = 0; i < order.orderItems.length; i++) {
+          const itemSelectedProducts = selectedProducts[i] || [];
+          const hasValidProduct = itemSelectedProducts.some(
+            sp => sp.productId && sp.productId !== '' && sp.quantity && sp.cutWeight
+          );
+          
+          if (!hasValidProduct) {
+            toast.error('Lütfen tüm sipariş ürünleri için stok ürünü seçin');
+            return;
+          }
+        }
+      }
+
       setUpdating(true);
       
       // selectedProducts'ı OrderCuttingDto formatına çevir
@@ -868,7 +913,7 @@ const OrderDetail = () => {
                                     ) : (
                                       <select
                                         value={selectedProduct.productId}
-                                        onChange={(e) => updateProductData(index, productIndex, 'productId', e.target.value)}
+                                        onChange={(e) => updateProductData(index, productIndex, 'productId', e.target.value, products)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                       >
                                         <option value="">Stok ürünü seçin</option>
@@ -888,7 +933,7 @@ const OrderDetail = () => {
                                     <input
                                       type="number"
                                       value={selectedProduct.quantity}
-                                      onChange={(e) => updateProductData(index, productIndex, 'quantity', e.target.value)}
+                                      onChange={(e) => updateProductData(index, productIndex, 'quantity', e.target.value, products)}
                                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                       placeholder="0"
                                     />
@@ -902,7 +947,7 @@ const OrderDetail = () => {
                                       type="number"
                                       step="0.01"
                                       value={selectedProduct.cutWeight}
-                                      onChange={(e) => updateProductData(index, productIndex, 'cutWeight', e.target.value)}
+                                      onChange={(e) => updateProductData(index, productIndex, 'cutWeight', e.target.value, products)}
                                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                       placeholder="0.00"
                                     />
@@ -916,7 +961,7 @@ const OrderDetail = () => {
                                       type="number"
                                       step="0.01"
                                       value={selectedProduct.kgPrice || ''}
-                                      onChange={(e) => updateProductData(index, productIndex, 'kgPrice', e.target.value)}
+                                      onChange={(e) => updateProductData(index, productIndex, 'kgPrice', e.target.value, products)}
                                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                       placeholder={item.kgPrice ? parseFloat(item.kgPrice).toFixed(2) : "0.00"}
                                     />
@@ -966,6 +1011,24 @@ const OrderDetail = () => {
           </div>
         )}
       </div>
+
+        {/* Status Update Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showStatusUpdateModal}
+          onClose={() => {
+            if (!statusUpdateLoading) {
+              setShowStatusUpdateModal(false);
+              setPendingStatusUpdate(null);
+            }
+          }}
+          onConfirm={handleConfirmStatusUpdate}
+          title="Sipariş Durumu Güncelle"
+          message="Bu işlemi gerçekleştirmek istediğinize emin misiniz?"
+          confirmText="Onayla"
+          cancelText="İptal"
+          confirmButtonClass="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={statusUpdateLoading}
+        />
     </Layout>
   );
 };

@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import { FiShoppingCart, FiPlus, FiMinus, FiTrash2, FiArrowLeft } from 'react-icons/fi';
 import Loading from '../components/Loading';
 import ProductOrderModal from '../components/ProductOrderModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const CreateOrder = () => {
   const { user } = useAuth();
@@ -29,6 +30,11 @@ const CreateOrder = () => {
   // Product Order Modal state
   const [showProductModal, setShowProductModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  
+  // Branch change confirmation modal state
+  const [showBranchChangeModal, setShowBranchChangeModal] = useState(false);
+  const [pendingBranchId, setPendingBranchId] = useState(null);
+  const [branchChangeLoading, setBranchChangeLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -94,19 +100,40 @@ const CreateOrder = () => {
     }
   };
 
-  const handleBranchChange = async (branchId) => {
-    // Eğer sepet doluysa ve farklı bir şube seçiliyorsa uyarı ver
+  const handleBranchChange = (branchId) => {
+    // Eğer sepet doluysa ve farklı bir şube seçiliyorsa onay modalı göster
     if (cart.length > 0) {
-      if (!window.confirm('Şube değiştirildiğinde sepet temizlenecektir. Devam etmek istiyor musunuz?')) {
-        return;
-      }
+      setPendingBranchId(branchId);
+      setShowBranchChangeModal(true);
+      return;
     }
     
+    // Sepet boşsa direkt değiştir
+    applyBranchChange(branchId);
+  };
+
+  const applyBranchChange = async (branchId) => {
     setSelectedBranch(branchId);
     setSelectedCategory(null);
     setCategoryProducts([]);
     setCart([]); // Sepeti temizle
     await fetchProductCategories(branchId);
+  };
+
+  const handleConfirmBranchChange = async () => {
+    if (!pendingBranchId) return;
+
+    setBranchChangeLoading(true);
+    try {
+      await applyBranchChange(pendingBranchId);
+      setShowBranchChangeModal(false);
+      setPendingBranchId(null);
+    } catch (error) {
+      console.error('Error changing branch:', error);
+      toast.error('Şube değiştirilirken bir hata oluştu');
+    } finally {
+      setBranchChangeLoading(false);
+    }
   };
 
   const handleCategorySelect = (categoryId) => {
@@ -638,6 +665,24 @@ const CreateOrder = () => {
           />
         )}
       </div>
+
+        {/* Branch Change Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showBranchChangeModal}
+          onClose={() => {
+            if (!branchChangeLoading) {
+              setShowBranchChangeModal(false);
+              setPendingBranchId(null);
+            }
+          }}
+          onConfirm={handleConfirmBranchChange}
+          title="Şube Değiştir"
+          message="Şube değiştirildiğinde sepet temizlenecektir. Devam etmek istiyor musunuz?"
+          confirmText="Devam Et"
+          cancelText="İptal"
+          confirmButtonClass="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          isLoading={branchChangeLoading}
+        />
     </Layout>
   );
 };

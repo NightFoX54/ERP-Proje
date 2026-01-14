@@ -99,8 +99,8 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
       return;
     }
 
-    // Satın alma fiyatı veya kg fiyatı kontrolü: admin veya stok yönetimi yetkisi olanlar için (ikisinden biri zorunlu, ikisi birden girilemez)
-    if (canManage) {
+    // Satın alma fiyatı veya kg fiyatı kontrolü: sadece yeni ürün ekleme modunda (düzenleme modunda fiyatlar readonly)
+    if (canManage && !isEdit) {
       const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
       const hasPurchaseKgPrice = formData.purchaseKgPrice && formData.purchaseKgPrice.trim() !== '';
       
@@ -127,8 +127,8 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
         fields: extraFields,
       };
 
-      // Eğer stok yönetimi yetkisi varsa ve purchasePrice girildiyse onu gönder, yoksa kgPrice gönder
-      if (canManage) {
+      // Eğer stok yönetimi yetkisi varsa ve yeni ürün ekleniyorsa, purchasePrice veya kgPrice gönder (düzenleme modunda fiyatlar backend'de korunur)
+      if (canManage && !isEdit) {
         const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
         if (hasPurchasePrice) {
           productData.purchasePrice = parseFloat(formData.purchasePrice);
