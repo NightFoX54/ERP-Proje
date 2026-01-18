@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isTokenExpired } from './tokenUtils';
 
 const API_BASE_URL = 'https://erp-proje-production.up.railway.app';
 //const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -16,11 +17,27 @@ const api = axios.create({
   timeout: 10000, // 10 saniye timeout
 });
 
-// Request interceptor - JWT token ekleme
+// Request interceptor - JWT token ekleme ve expiration kontrolü
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token && !config.url.includes('/api/auth/login') && !config.url.includes('/api/auth/register')) {
+    
+    // Auth endpoint'lerinde token kontrolü yapma
+    if (config.url.includes('/api/auth/login') || config.url.includes('/api/auth/register')) {
+      return config;
+    }
+    
+    // Token varsa expiration kontrolü yap
+    if (token) {
+      // Token süresi dolmuşsa otomatik logout yap
+      if (isTokenExpired(token)) {
+        console.warn('[API Request] Token expired, logging out...');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return Promise.reject(new Error('Token expired'));
+      }
+      
       config.headers.Authorization = `Bearer ${token}`;
     }
     

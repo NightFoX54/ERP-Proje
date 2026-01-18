@@ -1,11 +1,26 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { authService } from '../services/authService';
+import { isTokenExpired } from '../utils/tokenUtils';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const tokenCheckIntervalRef = useRef(null);
+
+  // Token expiration kontrolü ve otomatik logout
+  const checkTokenExpiration = () => {
+    const token = localStorage.getItem('token');
+    if (token && isTokenExpired(token)) {
+      console.warn('[AuthContext] Token expired, logging out...');
+      logout();
+      // Kullanıcıyı login sayfasına yönlendir
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -13,7 +28,20 @@ export const AuthProvider = ({ children }) => {
     
     if (token && userData) {
       try {
-        setUser(JSON.parse(userData));
+        // İlk yüklemede token expiration kontrolü
+        if (isTokenExpired(token)) {
+          console.warn('[AuthContext] Token expired on initial load, clearing...');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        } else {
+          setUser(JSON.parse(userData));
+          
+          // Her 60 saniyede bir token expiration kontrolü yap
+          // 24 saatlik süre için bu yeterli
+          tokenCheckIntervalRef.current = setInterval(() => {
+            checkTokenExpiration();
+          }, 60000); // 60 saniye (1 dakika)
+        }
       } catch (error) {
         console.error('Error parsing user data:', error);
         localStorage.removeItem('token');
@@ -21,6 +49,13 @@ export const AuthProvider = ({ children }) => {
       }
     }
     setLoading(false);
+
+    // Cleanup: component unmount olduğunda interval'i temizle
+    return () => {
+      if (tokenCheckIntervalRef.current) {
+        clearInterval(tokenCheckIntervalRef.current);
+      }
+    };
   }, []);
 
   const login = async (username, password) => {
@@ -40,6 +75,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
+        
+        // Önceki interval varsa temizle
+        if (tokenCheckIntervalRef.current) {
+          clearInterval(tokenCheckIntervalRef.current);
+        }
+        
+        // Yeni interval başlat - her 60 saniyede bir token kontrolü
+        tokenCheckIntervalRef.current = setInterval(() => {
+          checkTokenExpiration();
+        }, 60000); // 60 saniye (1 dakika)
+        
         return { success: true };
       }
       return { success: false, error: 'Giriş başarısız - Token alınamadı' };
@@ -91,6 +137,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', response.token);
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
+        
+        // Önceki interval varsa temizle
+        if (tokenCheckIntervalRef.current) {
+          clearInterval(tokenCheckIntervalRef.current);
+        }
+        
+        // Yeni interval başlat - her 60 saniyede bir token kontrolü
+        tokenCheckIntervalRef.current = setInterval(() => {
+          checkTokenExpiration();
+        }, 60000); // 60 saniye (1 dakika)
+        
         return { success: true };
       }
       return { success: false, error: 'Kayıt başarısız' };
@@ -115,6 +172,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Interval'i temizle
+    if (tokenCheckIntervalRef.current) {
+      clearInterval(tokenCheckIntervalRef.current);
+      tokenCheckIntervalRef.current = null;
+    }
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
