@@ -38,10 +38,10 @@ public class StockService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
         if(product.getPurchasePrice() != null){
-            product.setKgPrice(product.getPurchasePrice() / product.getStock() / product.getWeight());
+            product.setKgPrice(product.getPurchasePrice() / product.getWeight());
         }
         else{
-            product.setPurchasePrice(product.getKgPrice() * product.getWeight() * product.getStock());
+            product.setPurchasePrice(product.getKgPrice() * product.getWeight());
         }
         product.setCreatedAt(new Date());
         product.setIsActive(true);
@@ -69,11 +69,11 @@ public class StockService {
         // purchasePrice veya kgPrice'tan birini kullanarak diğerini hesapla
         if(product.getPurchasePrice() != null && product.getPurchasePrice() != 0){
             existingProduct.setPurchasePrice(product.getPurchasePrice());
-            existingProduct.setKgPrice(product.getPurchasePrice() / product.getStock() / product.getWeight());
+            existingProduct.setKgPrice(product.getPurchasePrice() / product.getWeight());
         }
         else if(product.getKgPrice() != null && product.getKgPrice() != 0){
             existingProduct.setKgPrice(product.getKgPrice());
-            existingProduct.setPurchasePrice(product.getKgPrice() * product.getWeight() * product.getStock());
+            existingProduct.setPurchasePrice(product.getKgPrice() * product.getWeight());
         }
         else {
             // Eğer ikisi de null ise, mevcut değerleri koru

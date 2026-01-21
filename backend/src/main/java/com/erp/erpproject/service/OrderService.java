@@ -113,6 +113,10 @@ public class OrderService {
                     }
                     else{
                         product.setStock(product.getStock() - cuttingInfo.getQuantity());
+                        product.setWeight(product.getWeight() - cuttingInfo.getTotalCutWeight());
+                        if(product.getWeight() <= 1) {
+                            product.setIsActive(false);
+                        }
                         if(product.getStock() <= 0) {
                             product.setIsActive(false);
                         }
