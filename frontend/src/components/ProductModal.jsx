@@ -120,7 +120,7 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
       
       const productData = {
         productCategoryId: formData.productCategoryId,
-        diameter: parseInt(formData.diameter),
+        diameter: parseFloat(formData.diameter),
         length: parseFloat(formData.length),
         weight: parseFloat(formData.weight),
         stock: isProductTypeDolu ? 1 : parseInt(formData.stock),
@@ -204,7 +204,7 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                 onChange={(e) => setFormData({ ...formData, diameter: e.target.value })}
                 className="input-field"
                 required
-                step="1"
+                step="0.1"
               />
             </div>
 

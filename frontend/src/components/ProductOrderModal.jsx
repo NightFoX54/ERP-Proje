@@ -128,7 +128,7 @@ const ProductOrderModal = ({
                 value={formData.diameter}
                 className="input-field bg-gray-100 cursor-not-allowed"
                 readOnly
-                step="1"
+                step="0.1"
               />
             </div>
 

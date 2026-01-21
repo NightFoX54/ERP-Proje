@@ -17,7 +17,7 @@ public class Product {
     private Double length;
     private Double purchasePrice;
     private Integer stock;
-    private Integer diameter;
+    private Double diameter;
     private Map<String, Object> fields;
     private Double kgPrice;
     private Boolean isActive;

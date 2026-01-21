@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 public class PurchasedProductStatisticsDto {
-    private Integer diameter;
+    private Double diameter;
     private Double purchaseLength;
     private Double purchaseWeight;
     private Double purchasePrice;
