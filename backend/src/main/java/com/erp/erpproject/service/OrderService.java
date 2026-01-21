@@ -78,9 +78,9 @@ public class OrderService {
                 Product product = productRepository.findById(cuttingInfo.getProductId()).orElse(null);
                 ProductType productType = productTypeRepository.findById(productCategoriesRepository.findById(product.getProductCategoryId()).orElse(null).getProductTypeId()).orElse(null);
 
-                if (product != null && cuttingInfo.getCutLength() != null) {
+                if (product != null) {
                     Integer wastageLength = 0;
-                    if(productType.getName().equals("Dolu")) {
+                    if(productType.getName().equals("Dolu") && cuttingInfo.getCutLength() != null) {
                         if((cuttingInfo.getCutLength() + 3) * cuttingInfo.getQuantity() > product.getLength()) {
                             wastageLength = 3 * (cuttingInfo.getQuantity() - 1);
                         } else {
@@ -96,7 +96,7 @@ public class OrderService {
                     // h (m) = wastageLength/1000
                     // Ağırlık (kg) = π * (diameter/2000)² * (wastageLength/1000) * 7850
                     Double wastageWeight = 0.0;
-                    if(productType.getName().equals("Dolu")) {
+                    if(productType.getName().equals("Dolu") && cuttingInfo.getCutLength() != null) {
                         Double wastageLengthM = wastageLength / 1000.0;
                         Double diameterM = product.getDiameter() / 2000.0;
                         wastageWeight = wastageLengthM * diameterM * diameterM * Math.PI * 7850.0;

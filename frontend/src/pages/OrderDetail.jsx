@@ -201,6 +201,7 @@ const OrderDetail = () => {
           productId: '',
           quantity: '',
           cutWeight: '',
+          cutLength: '',
           kgPrice: item.kgPrice || ''
         }];
       });
@@ -242,6 +243,7 @@ const OrderDetail = () => {
           productId: '',
           quantity: '',
           cutWeight: '',
+          cutLength: '',
           kgPrice: baseKgPrice
         }
       ]
@@ -297,12 +299,23 @@ const OrderDetail = () => {
       if (order?.orderItems) {
         for (let i = 0; i < order.orderItems.length; i++) {
           const itemSelectedProducts = selectedProducts[i] || [];
-          const hasValidProduct = itemSelectedProducts.some(
-            sp => sp.productId && sp.productId !== '' && sp.quantity && sp.cutWeight
-          );
+          const orderItem = order.orderItems[i];
+          const productTypeName = getProductTypeName(orderItem.productCategoryId);
+          const isBoru = productTypeName?.toLowerCase() === 'boru';
+          
+          const hasValidProduct = itemSelectedProducts.some(sp => {
+            if (!sp.productId || sp.productId === '' || !sp.quantity || !sp.cutWeight) {
+              return false;
+            }
+            // Boru için cutLength gerekmez, dolu için gerekli
+            if (!isBoru && !sp.cutLength) {
+              return false;
+            }
+            return true;
+          });
           
           if (!hasValidProduct) {
-            toast.error('Lütfen tüm sipariş ürünleri için stok ürünü seçin');
+            toast.error('Lütfen tüm sipariş ürünleri için stok ürünü seçin ve gerekli bilgileri doldurun');
             return;
           }
         }
@@ -318,14 +331,17 @@ const OrderDetail = () => {
         const itemSelectedProducts = selectedProducts[itemIndex];
         const orderItem = order.orderItems[parseInt(itemIndex)];
         const orderItemLength = orderItem?.length || null;
+        const productTypeName = getProductTypeName(orderItem.productCategoryId);
+        const isBoru = productTypeName?.toLowerCase() === 'boru';
         
         // Her bir seçilen stok ürünü için kesim bilgisi oluştur
         itemSelectedProducts.forEach(selectedProduct => {
           if (selectedProduct.productId && selectedProduct.quantity && selectedProduct.cutWeight) {
+            // Boru ürünleri için cutLength null olmalı, dolu ürünler için orderItemLength kullanılır
             cuttingInfo.push({
               productId: selectedProduct.productId,
               quantity: parseInt(selectedProduct.quantity) || 0,
-              cutLength: orderItemLength ? parseInt(orderItemLength) : null,
+              cutLength: isBoru ? null : (selectedProduct.cutLength ? parseInt(selectedProduct.cutLength) : (orderItemLength ? parseInt(orderItemLength) : null)),
               totalCutWeight: parseFloat(selectedProduct.cutWeight) || 0,
               kgPrice: selectedProduct.kgPrice ? parseFloat(selectedProduct.kgPrice) : null
             });
@@ -797,7 +813,7 @@ const OrderDetail = () => {
                       // Etiketleri ürün tipine göre belirle
                       const sourceLabel = isBoru ? 'Stok Kaynağı' : 'Kesim Kaynağı';
                       const quantityLabel = isBoru ? 'Verilen Adet (parça)' : 'Kesilen Miktar (parça)';
-                      const weightLabel = isBoru ? 'Toplam Teslim Edilen Ağırlık (kg)' : 'Toplam Kesilen Ağırlık (kg)';
+                      const weightLabel = isBoru ? 'Toplam Satış Kilosu (kg)' : 'Toplam Kesilen Ağırlık (kg)';
 
                       // Stok ürünü seçiminde gösterilecek bilgileri formatla
                       const formatProductOption = (product) => {
@@ -938,6 +954,22 @@ const OrderDetail = () => {
                                       placeholder="0"
                                     />
                                   </div>
+
+                                  {/* Boru ürünleri için kesim uzunluğu gösterilmez, sadece toplam satış kilosu */}
+                                  {!isBoru && (
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Kesim Uzunluğu (mm)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={selectedProduct.cutLength || ''}
+                                        onChange={(e) => updateProductData(index, productIndex, 'cutLength', e.target.value, products)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                  )}
 
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
