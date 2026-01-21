@@ -67,13 +67,13 @@ public class StockService {
         existingProduct.setFields(product.getFields());
         
         // purchasePrice veya kgPrice'tan birini kullanarak diğerini hesapla
-        if(product.getPurchasePrice() != null && product.getPurchasePrice() != 0){
-            existingProduct.setPurchasePrice(product.getPurchasePrice());
-            existingProduct.setKgPrice(product.getPurchasePrice() / product.getWeight());
-        }
-        else if(product.getKgPrice() != null && product.getKgPrice() != 0){
+        if(product.getKgPrice() != null && product.getKgPrice() != 0){
             existingProduct.setKgPrice(product.getKgPrice());
             existingProduct.setPurchasePrice(product.getKgPrice() * product.getWeight());
+        }
+        else if(product.getPurchasePrice() != null && product.getPurchasePrice() != 0){
+            existingProduct.setPurchasePrice(product.getPurchasePrice());
+            existingProduct.setKgPrice(product.getPurchasePrice() / product.getWeight());
         }
         else {
             // Eğer ikisi de null ise, mevcut değerleri koru
