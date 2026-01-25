@@ -6,12 +6,14 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.erp.erpproject.dto.DateRangeDto;
+import com.erp.erpproject.dto.MainPageStatisticsDto;
 import com.erp.erpproject.dto.PurchasedProductStatisticsDto;
 import com.erp.erpproject.dto.StatisticsPurchaseTotalDTO;
 import com.erp.erpproject.dto.StatisticsSoldProductsDto;
@@ -51,5 +53,12 @@ public class StatisticsController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         return statisticsService.getSoldProductsBetweenDatesTotal(dateRange.getStartDate(), dateRange.getEndDate(), userPrincipal);
+    }
+
+    @GetMapping("/main-page-statistics")
+    public ResponseEntity<MainPageStatisticsDto> getMainPageStatistics() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        return statisticsService.getMainPageStatistics(userPrincipal);
     }
 }

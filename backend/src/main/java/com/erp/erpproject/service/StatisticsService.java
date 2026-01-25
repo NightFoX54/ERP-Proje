@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.erp.erpproject.dto.MainPageStatisticsDto;
 import com.erp.erpproject.dto.PurchasedProductStatisticsDto;
 import com.erp.erpproject.dto.StatisticsPurchaseTotalDTO;
 import com.erp.erpproject.dto.StatisticsSoldProductsDto;
@@ -234,5 +236,41 @@ public class StatisticsService {
                 .mapToDouble(Orders::getTotalWastageWeight)
                 .sum();
         return ResponseEntity.ok(new StatisticsSoldTotalDTO(totalSoldWeight, totalPrice, totalWastageWeight));
+    }
+
+    public ResponseEntity<MainPageStatisticsDto> getMainPageStatistics(UserPrincipal userPrincipal) {
+        List<Orders> orders = ordersRepository.findAll();
+        List<Product> products = productRepository.findAll();
+        List<ProductCategories> productCategories = productCategoriesRepository.findAll();
+        Integer totalProducts = 0;
+        Integer totalOrders = 0;
+        Integer totalWaitingOrders = 0;
+        if(userPrincipal != null && userPrincipal.isBranchUser()) {
+            String branchId = userPrincipal.getBranchId();
+            productCategories = productCategoriesRepository.findAllByBranchId(branchId);
+            Set<String> branchCategoryIds = productCategories.stream()
+                    .map(ProductCategories::getId)
+                    .collect(Collectors.toSet());
+            totalProducts = (int) products.stream()
+                    .filter(product -> product.getProductCategoryId() != null && 
+                                     branchCategoryIds.contains(product.getProductCategoryId()))
+                    .count();
+            totalOrders = orders.stream()
+                    .filter(order -> order.getOrderDeliveryBranchId().equals(branchId))
+                    .collect(Collectors.toList()).size();
+            totalWaitingOrders = orders.stream()
+                    .filter(order -> order.getOrderDeliveryBranchId().equals(branchId))
+                    .filter(order -> !order.getOrderStatus().equals(Orders.OrderStatus.Çıktı))
+                    .collect(Collectors.toList()).size();
+        }
+        else if(userPrincipal != null && userPrincipal.isAdmin()) {
+            totalProducts = products.size();
+            totalOrders = orders.size();
+            totalWaitingOrders = orders.stream()
+                    .filter(order -> !order.getOrderStatus().equals(Orders.OrderStatus.Çıktı))
+                    .collect(Collectors.toList()).size();
+        }
+
+        return ResponseEntity.ok(new MainPageStatisticsDto(totalProducts, totalOrders, totalWaitingOrders));
     }
 }
