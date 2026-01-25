@@ -36,4 +36,10 @@ export const statisticsService = {
     });
     return response.data;
   },
+
+  // Ana sayfa istatistiklerini çek
+  getMainPageStatistics: async () => {
+    const response = await api.get('/api/statistics/main-page-statistics');
+    return response.data;
+  },
 };

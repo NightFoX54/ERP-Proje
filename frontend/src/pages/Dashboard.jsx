@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { branchService } from '../services/branchService';
 import { stockService } from '../services/stockService';
+import { statisticsService } from '../services/statisticsService';
 import { Link } from 'react-router-dom';
 import { FiPackage, FiShoppingCart, FiTrendingUp, FiAlertCircle } from 'react-icons/fi';
 import { toast } from 'react-toastify';
@@ -30,8 +31,13 @@ const Dashboard = () => {
       const branchesData = await branchService.getBranches();
       setBranches(branchesData || []);
 
-      // İstatistikleri çek (şimdilik placeholder, backend'den gelecek)
-      // TODO: Backend'den sipariş istatistikleri endpoint'i eklendiğinde güncellenecek
+      // Ana sayfa istatistiklerini çek
+      const statisticsData = await statisticsService.getMainPageStatistics();
+      setStats({
+        totalProducts: statisticsData.totalProducts || 0,
+        totalOrders: statisticsData.totalOrders || 0,
+        pendingOrders: statisticsData.totalWaitingOrders || 0,
+      });
       
       setLoading(false);
     } catch (error) {
