@@ -146,6 +146,45 @@ const CreateOrder = () => {
     return productType?.name || null;
   };
 
+  // Ürünleri çap ve iç çapa göre sıralama fonksiyonu
+  const sortProductsByDiameter = (products) => {
+    return [...products].sort((a, b) => {
+      // Önce çapa göre sırala
+      const diameterA = a.diameter || 0;
+      const diameterB = b.diameter || 0;
+      
+      if (diameterA !== diameterB) {
+        return diameterA - diameterB;
+      }
+      
+      // Çaplar eşitse iç çapa göre sırala
+      const getInnerDiameter = (product) => {
+        if (!product.fields || typeof product.fields !== 'object') return 0;
+        
+        for (const [key, value] of Object.entries(product.fields)) {
+          if (value !== null && value !== undefined && value !== '') {
+            const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+            const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                    normalizedKey.includes('innerdiameter') ||
+                                    normalizedKey.includes('iççap') ||
+                                    normalizedKey === 'icap' ||
+                                    normalizedKey === 'innerdiam';
+            if (isInnerDiameter) {
+              const numValue = parseFloat(value);
+              return isNaN(numValue) ? 0 : numValue;
+            }
+          }
+        }
+        return 0;
+      };
+      
+      const innerDiameterA = getInnerDiameter(a);
+      const innerDiameterB = getInnerDiameter(b);
+      
+      return innerDiameterA - innerDiameterB;
+    });
+  };
+
   const addToCart = (product) => {
     // Sepette ürün varsa, mevcut ürünlerin şubesini kontrol et
     if (cart.length > 0) {
@@ -173,6 +212,57 @@ const CreateOrder = () => {
   };
 
   const addProductToCartDirectly = (product, quantity) => {
+    const productTypeName = getProductTypeName(categoryDetails);
+    const isBoru = productTypeName?.toLowerCase() === 'boru';
+    
+    // Boru ürünler için: Aynı productId'ye sahip ürün var mı kontrol et
+    if (isBoru) {
+      const existingItemIndex = cart.findIndex(item => 
+        item.productId === product.id && 
+        item.productTypeName?.toLowerCase() === 'boru'
+      );
+      
+      if (existingItemIndex !== -1) {
+        // Mevcut ürünün adedini artır
+        const existingItem = cart[existingItemIndex];
+        const newQuantity = existingItem.quantity + quantity;
+        
+        // Stok kontrolü
+        if (product.stock !== undefined) {
+          const stock = parseInt(product.stock);
+          if (newQuantity > stock) {
+            toast.error(`Toplam adet (${newQuantity}) stok miktarını (${stock} adet) geçemez`);
+            return;
+          }
+        }
+        
+        // Adedi güncelle
+        const updatedCart = [...cart];
+        updatedCart[existingItemIndex] = {
+          ...existingItem,
+          quantity: newQuantity,
+          orderItem: {
+            ...existingItem.orderItem,
+            quantity: newQuantity
+          }
+        };
+        setCart(updatedCart);
+        toast.success('Sepetteki ürün adedi güncellendi');
+        return;
+      }
+      
+      // Yeni ürün ekle - stok kontrolü
+      if (product.stock !== undefined) {
+        const stock = parseInt(product.stock);
+        const requestedQuantity = parseInt(quantity);
+        
+        if (requestedQuantity > stock) {
+          toast.error(`Girilen adet (${requestedQuantity}) stok miktarını (${stock} adet) geçemez`);
+          return;
+        }
+      }
+    }
+    
     // Boru tipi için direkt sepete ekleme
     const orderItem = {
       productCategoryId: categoryDetails?.id || '',
@@ -184,21 +274,54 @@ const CreateOrder = () => {
       wastageWeight: 0,
     };
 
-    // Extra fields varsa ekle
+    // İç çap bilgisini bul
+    let innerDiameter = null;
     if (product.fields) {
       Object.entries(product.fields).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
+          const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+          const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                  normalizedKey.includes('innerdiameter') ||
+                                  normalizedKey.includes('iççap') ||
+                                  normalizedKey === 'icap' ||
+                                  normalizedKey === 'innerdiam';
+          if (isInnerDiameter) {
+            innerDiameter = value;
+          }
           orderItem[key] = value;
         }
       });
     }
 
+    // Ürün başlığı formatını oluştur
+    const formatProductName = () => {
+      const parts = [];
+      if (product.diameter) {
+        parts.push(`Çap: ${product.diameter}mm`);
+      }
+      if (innerDiameter !== null) {
+        parts.push(`İç Çap: ${innerDiameter}mm`);
+      }
+      if (product.length) {
+        parts.push(`Uzunluk: ${product.length}mm`);
+      }
+      return parts.join(' - ');
+    };
+    
+    // Category name'i bul
+    const categoryName = categoryDetails?.name || productCategories.find(cat => cat.id === categoryDetails?.id)?.name || 'Bilinmeyen';
+    
     setCart([...cart, {
       orderItem: orderItem,
-      productName: `${product.diameter || ''}mm - ${product.length || ''}mm`,
+      productName: formatProductName(),
+      categoryName: categoryName, // Ürün başlık adı
       quantity: quantity,
       branchId: selectedBranch, // Şube ID'sini sakla
       kgPrice: '', // Her ürün için ayrı kg fiyatı
+      productStock: product.stock, // Stok bilgisini sakla (boru için)
+      productLength: product.length, // Ürün uzunluğu (dolu için)
+      productId: product.id, // Ürün ID'sini sakla (stok kontrolü için)
+      productTypeName: productTypeName, // Ürün tipi (boru/dolu) - stok kontrolü için
     }]);
     
     toast.success('Ürün sepete eklendi');
@@ -218,12 +341,138 @@ const CreateOrder = () => {
       }
     }
     
+    const productTypeName = getProductTypeName(categoryDetails);
+    const isDolu = productTypeName?.toLowerCase() === 'dolu';
+    const cutLength = orderItem.length;
+    
+    // Dolu ürünler için: Aynı productId VE aynı kesim uzunluğu varsa adedi artır
+    if (isDolu && selectedProduct?.id && cutLength) {
+      const existingItemIndex = cart.findIndex(item => 
+        item.productId === selectedProduct.id && 
+        item.productTypeName?.toLowerCase() === 'dolu' &&
+        item.orderItem?.length === cutLength
+      );
+      
+      if (existingItemIndex !== -1) {
+        // Mevcut ürünün adedini artır
+        const existingItem = cart[existingItemIndex];
+        const newQuantity = existingItem.quantity + orderItem.quantity;
+        
+        // Stok kontrolü: Aynı productId'ye sahip tüm ürünlerin toplam uzunluğu
+        if (selectedProduct?.length !== undefined) {
+          const productLength = parseFloat(selectedProduct.length);
+          
+          // Aynı productId'ye sahip tüm ürünlerin toplam uzunluğunu hesapla
+          const sameProductItems = cart.filter(item => 
+            item.productId === selectedProduct.id && 
+            item.productTypeName?.toLowerCase() === 'dolu' &&
+            item.orderItem?.length
+          );
+          
+          let totalLength = 0;
+          sameProductItems.forEach(item => {
+            totalLength += parseFloat(item.orderItem.length) * item.quantity;
+          });
+          
+          // Yeni eklenen ürünün uzunluğunu da ekle
+          totalLength += parseFloat(cutLength) * orderItem.quantity;
+          
+          if (totalLength > productLength) {
+            toast.error(`Toplam uzunluk (${totalLength}mm) ürün uzunluğunu (${productLength}mm) geçemez`);
+            return;
+          }
+        }
+        
+        // Adedi güncelle
+        const updatedCart = [...cart];
+        updatedCart[existingItemIndex] = {
+          ...existingItem,
+          quantity: newQuantity,
+          orderItem: {
+            ...existingItem.orderItem,
+            quantity: newQuantity
+          }
+        };
+        setCart(updatedCart);
+        toast.success('Sepetteki ürün adedi güncellendi');
+        setShowProductModal(false);
+        setSelectedProduct(null);
+        return;
+      }
+      
+      // Yeni ürün ekle - stok kontrolü: Aynı productId'ye sahip tüm ürünlerin toplam uzunluğu
+      if (selectedProduct?.length !== undefined) {
+        const productLength = parseFloat(selectedProduct.length);
+        
+        // Aynı productId'ye sahip tüm ürünlerin toplam uzunluğunu hesapla
+        const sameProductItems = cart.filter(item => 
+          item.productId === selectedProduct.id && 
+          item.productTypeName?.toLowerCase() === 'dolu' &&
+          item.orderItem?.length
+        );
+        
+        let totalLength = 0;
+        sameProductItems.forEach(item => {
+          totalLength += parseFloat(item.orderItem.length) * item.quantity;
+        });
+        
+        // Yeni eklenen ürünün uzunluğunu da ekle
+        totalLength += parseFloat(cutLength) * orderItem.quantity;
+        
+        if (totalLength > productLength) {
+          toast.error(`Toplam uzunluk (${totalLength}mm) ürün uzunluğunu (${productLength}mm) geçemez`);
+          return;
+        }
+      }
+    }
+    
+    // İç çap bilgisini bul
+    let innerDiameter = null;
+    Object.entries(orderItem).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+        const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                normalizedKey.includes('innerdiameter') ||
+                                normalizedKey.includes('iççap') ||
+                                normalizedKey === 'icap' ||
+                                normalizedKey === 'innerdiam';
+        if (isInnerDiameter) {
+          innerDiameter = value;
+        }
+      }
+    });
+    
+    // Ürün başlığı formatını oluştur
+    const formatProductName = () => {
+      const parts = [];
+      if (orderItem.diameter) {
+        parts.push(`Çap: ${orderItem.diameter}mm`);
+      }
+      if (innerDiameter !== null) {
+        parts.push(`İç Çap: ${innerDiameter}mm`);
+      }
+      if (orderItem.length) {
+        parts.push(`Uzunluk: ${orderItem.length}mm`);
+      } else if (orderItem.weight) {
+        parts.push(`Ağırlık: ${parseFloat(orderItem.weight).toFixed(2)}kg`);
+      }
+      return parts.join(' - ');
+    };
+    
+    // Category name'i bul
+    const categoryName = categoryDetails?.name || productCategories.find(cat => cat.id === categoryDetails?.id)?.name || 'Bilinmeyen';
+    
     setCart([...cart, {
       orderItem: orderItem,
-      productName: `${orderItem.diameter || ''}mm - ${orderItem.length ? orderItem.length + 'mm' : orderItem.weight ? parseFloat(orderItem.weight).toFixed(2) + 'kg' : ''}`,
+      productName: formatProductName(),
+      categoryName: categoryName, // Ürün başlık adı
       quantity: orderItem.quantity,
       branchId: selectedBranch, // Şube ID'sini sakla
       kgPrice: '', // Her ürün için ayrı kg fiyatı
+      productStock: selectedProduct?.stock, // Stok bilgisini sakla (boru için)
+      productLength: selectedProduct?.length, // Ürün uzunluğu (dolu için)
+      productId: selectedProduct?.id, // Ürün ID'sini sakla (stok kontrolü için)
+      productTypeName: productTypeName, // Ürün tipi (boru/dolu) - stok kontrolü için
     }]);
     
     setShowProductModal(false);
@@ -232,20 +481,66 @@ const CreateOrder = () => {
   };
 
   const updateCartQuantity = (index, change) => {
-    setCart(cart.map((item, idx) => {
-      if (idx === index) {
-        const newQuantity = item.quantity + change;
-        if (newQuantity <= 0) {
-          return null;
+    const item = cart[index];
+    if (!item) return;
+    
+    const newQuantity = item.quantity + change;
+    if (newQuantity <= 0) {
+      removeFromCart(index);
+      return;
+    }
+    
+    // Stok kontrolü
+    const productTypeName = item.productTypeName;
+    const isBoru = productTypeName?.toLowerCase() === 'boru';
+    const isDolu = productTypeName?.toLowerCase() === 'dolu';
+    
+    if (isBoru && item.productStock !== undefined) {
+      // Boru için: adet <= stok
+      const stock = parseInt(item.productStock);
+      if (newQuantity > stock) {
+        toast.error(`Girilen adet (${newQuantity}) stok miktarını (${stock} adet) geçemez`);
+        return;
+      }
+    } else if (isDolu && item.orderItem?.length && item.productLength !== undefined && item.productId) {
+      // Dolu için: Aynı productId'ye sahip tüm ürünlerin toplam uzunluğu <= ürün uzunluğu
+      const productLength = parseFloat(item.productLength);
+      const currentItemLength = parseFloat(item.orderItem.length);
+      
+      // Aynı productId'ye sahip tüm ürünlerin toplam uzunluğunu hesapla
+      const sameProductItems = cart.filter(cartItem => 
+        cartItem.productId === item.productId && 
+        cartItem.productTypeName?.toLowerCase() === 'dolu' &&
+        cartItem.orderItem?.length
+      );
+      
+      let totalLength = 0;
+      sameProductItems.forEach(cartItem => {
+        if (cartItem === item) {
+          // Güncellenen ürün için yeni adet kullan
+          totalLength += parseFloat(cartItem.orderItem.length) * newQuantity;
+        } else {
+          // Diğer ürünler için mevcut adet kullan
+          totalLength += parseFloat(cartItem.orderItem.length) * cartItem.quantity;
         }
-        const updatedItem = { ...item, quantity: newQuantity };
+      });
+      
+      if (totalLength > productLength) {
+        toast.error(`Toplam uzunluk (${totalLength}mm) ürün uzunluğunu (${productLength}mm) geçemez`);
+        return;
+      }
+    }
+    
+    setCart(cart.map((cartItem, idx) => {
+      if (idx === index) {
+        const updatedItem = { ...cartItem, quantity: newQuantity };
         if (updatedItem.orderItem) {
           updatedItem.orderItem.quantity = newQuantity;
         }
         return updatedItem;
       }
-      return item;
-    }).filter(Boolean));
+      return cartItem;
+    }));
   };
 
   const removeFromCart = (index) => {
@@ -439,7 +734,7 @@ const CreateOrder = () => {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                        {categoryProducts
+                        {sortProductsByDiameter(categoryProducts)
                       .filter(product => product.stock > 0)
                       .map((product) => {
                         // Tüm ekstra alanları formatla (diameter, length, weight, stock hariç)
@@ -460,14 +755,56 @@ const CreateOrder = () => {
                           return value;
                         };
                         
-                        const extraFields = [];
-                        // product.fields içindeki alanları ekle
+                        // İç çap bilgisini bul
+                        let innerDiameter = null;
                         if (product.fields && typeof product.fields === 'object') {
                           Object.entries(product.fields).forEach(([key, value]) => {
                             if (value !== null && value !== undefined && value !== '') {
-                              const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
-                              const formattedValue = formatFieldValue(key, value);
-                              extraFields.push({ key: formattedKey, value: formattedValue });
+                              const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                              const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                      normalizedKey.includes('innerdiameter') ||
+                                                      normalizedKey.includes('iççap') ||
+                                                      normalizedKey === 'icap' ||
+                                                      normalizedKey === 'innerdiam';
+                              if (isInnerDiameter) {
+                                innerDiameter = value;
+                              }
+                            }
+                          });
+                        }
+                        
+                        // Ürün başlığı formatını oluştur
+                        const formatProductTitle = () => {
+                          const parts = [];
+                          if (product.diameter) {
+                            parts.push(`Çap: ${product.diameter}mm`);
+                          }
+                          if (innerDiameter !== null) {
+                            parts.push(`İç Çap: ${innerDiameter}mm`);
+                          }
+                          if (product.length) {
+                            parts.push(`Uzunluk: ${product.length}mm`);
+                          }
+                          return parts.join(' - ');
+                        };
+                        
+                        const extraFields = [];
+                        // product.fields içindeki alanları ekle (iç çap hariç, çünkü zaten başlıkta gösteriliyor)
+                        if (product.fields && typeof product.fields === 'object') {
+                          Object.entries(product.fields).forEach(([key, value]) => {
+                            if (value !== null && value !== undefined && value !== '') {
+                              const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                              const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                                      normalizedKey.includes('innerdiameter') ||
+                                                      normalizedKey.includes('iççap') ||
+                                                      normalizedKey === 'icap' ||
+                                                      normalizedKey === 'innerdiam';
+                              // İç çap alanını atla, çünkü zaten başlıkta gösteriliyor
+                              if (!isInnerDiameter) {
+                                const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                                const formattedValue = formatFieldValue(key, value);
+                                extraFields.push({ key: formattedKey, value: formattedValue });
+                              }
                             }
                           });
                         }
@@ -479,7 +816,7 @@ const CreateOrder = () => {
                           >
                             <div className="flex-1">
                               <p className="font-semibold text-gray-900 mb-1">
-                                {product.diameter ? `${product.diameter}mm` : ''} - {product.length ? `${product.length}mm` : ''}
+                                {formatProductTitle()}
                               </p>
                               <p className="text-sm text-gray-600">
                                 Ağırlık: {product.weight ? parseFloat(product.weight).toFixed(2) : '-'}kg | Stok: <span className="font-semibold text-green-600">{product.stock}</span>
@@ -536,6 +873,11 @@ const CreateOrder = () => {
                       >
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex-1">
+                            {item.categoryName && (
+                              <p className="text-sm font-bold text-primary-700 mb-2 px-2 py-1 bg-primary-50 rounded-md border border-primary-200 inline-block">
+                                {item.categoryName}
+                              </p>
+                            )}
                             <p className="text-sm font-semibold text-gray-900">
                               {item.productName}
                             </p>

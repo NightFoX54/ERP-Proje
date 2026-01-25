@@ -265,19 +265,85 @@ const OrderDetail = () => {
     setSelectedProducts(prev => {
       const newProducts = [...(prev[itemIndex] || [])];
       const currentProduct = newProducts[productIndex];
+      const orderItem = order?.orderItems?.[itemIndex];
+      const orderQuantity = orderItem?.quantity || 0;
       
-      // quantity (adet) için stok kontrolü
-      if (field === 'quantity' && currentProduct?.productId && products) {
+      // quantity (adet) için kontrol
+      if (field === 'quantity' && currentProduct?.productId && products && order?.orderItems) {
         const selectedStockProduct = products.find(p => p.id === currentProduct.productId);
+        const inputQuantity = parseInt(value);
+        const productTypeName = getProductTypeName(orderItem?.productCategoryId);
+        const isDolu = productTypeName?.toLowerCase() === 'dolu';
         
-        if (selectedStockProduct && selectedStockProduct.stock !== undefined) {
-          const maxStock = parseInt(selectedStockProduct.stock);
-          const inputQuantity = parseInt(value);
+        if (!isNaN(inputQuantity)) {
+          if (isDolu && selectedStockProduct && orderItem?.length) {
+            // Dolu ürünler için: kesim uzunluğu * kesilen miktar <= stok ürünün uzunluğu
+            const cutLength = parseFloat(orderItem.length);
+            const stockProductLength = parseFloat(selectedStockProduct.length);
+            const totalLength = cutLength * inputQuantity;
+            
+            if (totalLength > stockProductLength) {
+              const maxQuantity = Math.floor(stockProductLength / cutLength);
+              toast.error(`Kesim uzunluğu (${cutLength}mm) * kesilen miktar (${inputQuantity}) stok ürünün uzunluğunu (${stockProductLength}mm) geçemez. Maksimum: ${maxQuantity} adet`);
+              value = maxQuantity > 0 ? maxQuantity.toString() : '0';
+            } else {
+              // Toplam adet kontrolü: Tüm seçilen ürünlerin toplam adedi sipariş miktarını geçemez
+              let totalQuantity = 0;
+              newProducts.forEach((prod, idx) => {
+                if (idx !== productIndex && prod.quantity) {
+                  totalQuantity += parseInt(prod.quantity) || 0;
+                }
+              });
+              totalQuantity += inputQuantity;
+              
+              if (totalQuantity > orderQuantity) {
+                toast.error(`Toplam adet (${totalQuantity}) sipariş miktarından (${orderQuantity} adet) fazla olamaz`);
+                const maxAllowed = orderQuantity - totalQuantity + inputQuantity;
+                value = maxAllowed > 0 ? maxAllowed.toString() : '0';
+              }
+            }
+          } else if (!isDolu && selectedStockProduct && selectedStockProduct.stock !== undefined) {
+            // Boru ürünler için: adet <= stok ve adet <= sipariş miktarı
+            const maxStock = parseInt(selectedStockProduct.stock);
+            
+            if (inputQuantity > maxStock) {
+              toast.error(`Girilen adet stoktan (${maxStock} adet) fazla olamaz`);
+              value = maxStock.toString();
+            } else if (inputQuantity > orderQuantity) {
+              toast.error(`Girilen adet sipariş miktarından (${orderQuantity} adet) fazla olamaz`);
+              value = orderQuantity.toString();
+            } else {
+              // Toplam adet kontrolü: Tüm seçilen ürünlerin toplam adedi sipariş miktarını geçemez
+              let totalQuantity = 0;
+              newProducts.forEach((prod, idx) => {
+                if (idx !== productIndex && prod.quantity) {
+                  totalQuantity += parseInt(prod.quantity) || 0;
+                }
+              });
+              totalQuantity += inputQuantity;
+              
+              if (totalQuantity > orderQuantity) {
+                toast.error(`Toplam adet (${totalQuantity}) sipariş miktarından (${orderQuantity} adet) fazla olamaz`);
+                const maxAllowed = orderQuantity - totalQuantity + inputQuantity;
+                value = maxAllowed > 0 ? maxAllowed.toString() : '0';
+              }
+            }
+          }
+        }
+      }
+      
+      // cutWeight (toplam satış kilosu / toplam kesilen ağırlık) için stok ürün ağırlığı kontrolü
+      if (field === 'cutWeight' && currentProduct?.productId && products) {
+        const selectedStockProduct = products.find(p => p.id === currentProduct.productId);
+        const inputWeight = parseFloat(value);
+        
+        if (selectedStockProduct && selectedStockProduct.weight !== undefined) {
+          const maxWeight = parseFloat(selectedStockProduct.weight);
           
-          // Eğer girilen adet stoktan fazlaysa, stoka eşitle
-          if (!isNaN(inputQuantity) && inputQuantity > maxStock) {
-            toast.error(`Girilen adet stoktan (${maxStock} adet) fazla olamaz`);
-            value = maxStock.toString();
+          // Girilen ağırlık stok ürünün ağırlığından fazla olamaz
+          if (!isNaN(inputWeight) && inputWeight > maxWeight) {
+            toast.error(`Girilen ağırlık stok ürünün ağırlığından (${maxWeight.toFixed(2)}kg) fazla olamaz`);
+            value = maxWeight.toFixed(2);
           }
         }
       }
@@ -295,20 +361,19 @@ const OrderDetail = () => {
 
   const handleConfirmReady = async () => {
     try {
-      // Validasyon: Tüm order item'lar için en az bir ürün seçilmiş olmalı
+      // Validasyon: Tüm order item'lar için en az bir ürün seçilmiş olmalı ve kontroller
       if (order?.orderItems) {
         for (let i = 0; i < order.orderItems.length; i++) {
           const itemSelectedProducts = selectedProducts[i] || [];
           const orderItem = order.orderItems[i];
           const productTypeName = getProductTypeName(orderItem.productCategoryId);
           const isBoru = productTypeName?.toLowerCase() === 'boru';
+          const products = availableProducts[i] || [];
+          
+          const isDolu = productTypeName?.toLowerCase() === 'dolu';
           
           const hasValidProduct = itemSelectedProducts.some(sp => {
             if (!sp.productId || sp.productId === '' || !sp.quantity || !sp.cutWeight) {
-              return false;
-            }
-            // Boru için cutLength gerekmez, dolu için gerekli
-            if (!isBoru && !sp.cutLength) {
               return false;
             }
             return true;
@@ -316,6 +381,58 @@ const OrderDetail = () => {
           
           if (!hasValidProduct) {
             toast.error('Lütfen tüm sipariş ürünleri için stok ürünü seçin ve gerekli bilgileri doldurun');
+            return;
+          }
+          
+          // Her seçilen ürün için validasyon kontrolleri
+          let totalQuantity = 0;
+          for (const selectedProduct of itemSelectedProducts) {
+            if (selectedProduct.productId && selectedProduct.quantity) {
+              const stockProduct = products.find(p => p.id === selectedProduct.productId);
+              const inputQuantity = parseInt(selectedProduct.quantity);
+              const orderQuantity = orderItem?.quantity || 0;
+              
+              if (isDolu && stockProduct && orderItem?.length) {
+                // Dolu ürünler için: kesim uzunluğu * kesilen miktar <= stok ürünün uzunluğu
+                const cutLength = parseFloat(orderItem.length);
+                const stockProductLength = parseFloat(stockProduct.length);
+                const totalLength = cutLength * inputQuantity;
+                
+                if (totalLength > stockProductLength) {
+                  toast.error(`${stockProduct.diameter}mm ürün için kesim uzunluğu (${cutLength}mm) * kesilen miktar (${inputQuantity}) stok ürünün uzunluğunu (${stockProductLength}mm) geçemez`);
+                  return;
+                }
+              } else if (!isDolu && stockProduct && stockProduct.stock !== undefined) {
+                // Boru ürünler için: adet <= stok
+                const maxStock = parseInt(stockProduct.stock);
+                if (inputQuantity > maxStock) {
+                  toast.error(`${stockProduct.diameter}mm ürün için girilen adet (${inputQuantity}) stoktan (${maxStock} adet) fazla olamaz`);
+                  return;
+                }
+              }
+              
+              if (inputQuantity > orderQuantity) {
+                toast.error(`${stockProduct?.diameter || ''}mm ürün için girilen adet (${inputQuantity}) sipariş miktarından (${orderQuantity} adet) fazla olamaz`);
+                return;
+              }
+              
+              totalQuantity += inputQuantity;
+              
+              // Ağırlık kontrolü: stok ürünün ağırlığından fazla olamaz
+              if (selectedProduct.cutWeight && stockProduct && stockProduct.weight !== undefined) {
+                const inputWeight = parseFloat(selectedProduct.cutWeight);
+                const maxWeight = parseFloat(stockProduct.weight);
+                if (inputWeight > maxWeight) {
+                  toast.error(`${stockProduct.diameter}mm ürün için girilen ağırlık (${inputWeight.toFixed(2)}kg) stok ürünün ağırlığından (${maxWeight.toFixed(2)}kg) fazla olamaz`);
+                  return;
+                }
+              }
+            }
+          }
+          
+          // Toplam adet kontrolü: tüm seçilen ürünlerin toplam adedi sipariş miktarını geçemez
+          if (totalQuantity > orderItem.quantity) {
+            toast.error(`Toplam adet (${totalQuantity}) sipariş miktarından (${orderItem.quantity} adet) fazla olamaz`);
             return;
           }
         }
@@ -336,12 +453,14 @@ const OrderDetail = () => {
         
         // Her bir seçilen stok ürünü için kesim bilgisi oluştur
         itemSelectedProducts.forEach(selectedProduct => {
-          if (selectedProduct.productId && selectedProduct.quantity && selectedProduct.cutWeight) {
-            // Boru ürünleri için cutLength null olmalı, dolu ürünler için orderItemLength kullanılır
+          const quantity = parseInt(selectedProduct.quantity) || 0;
+          // Miktarı 0 olan ürünleri backend'e gönderme
+          if (selectedProduct.productId && quantity > 0 && selectedProduct.cutWeight) {
+            // Boru ürünleri için cutLength null olmalı, dolu ürünler için siparişteki uzunluk kullanılır
             cuttingInfo.push({
               productId: selectedProduct.productId,
-              quantity: parseInt(selectedProduct.quantity) || 0,
-              cutLength: isBoru ? null : (selectedProduct.cutLength ? parseInt(selectedProduct.cutLength) : (orderItemLength ? parseInt(orderItemLength) : null)),
+              quantity: quantity,
+              cutLength: isBoru ? null : (orderItemLength ? parseInt(orderItemLength) : null),
               totalCutWeight: parseFloat(selectedProduct.cutWeight) || 0,
               kgPrice: selectedProduct.kgPrice ? parseFloat(selectedProduct.kgPrice) : null
             });
@@ -933,11 +1052,19 @@ const OrderDetail = () => {
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                       >
                                         <option value="">Stok ürünü seçin</option>
-                                        {products.map((product) => (
-                                          <option key={product.id} value={product.id}>
-                                            {formatProductOption(product)}
-                                          </option>
-                                        ))}
+                                        {products
+                                          .filter(product => {
+                                            // Zaten seçilmiş ürünleri filtrele (mevcut seçili ürün hariç)
+                                            const isAlreadySelected = itemSelectedProducts.some((sp, idx) => 
+                                              idx !== productIndex && sp.productId === product.id
+                                            );
+                                            return !isAlreadySelected;
+                                          })
+                                          .map((product) => (
+                                            <option key={product.id} value={product.id}>
+                                              {formatProductOption(product)}
+                                            </option>
+                                          ))}
                                       </select>
                                     )}
                                   </div>
@@ -955,18 +1082,17 @@ const OrderDetail = () => {
                                     />
                                   </div>
 
-                                  {/* Boru ürünleri için kesim uzunluğu gösterilmez, sadece toplam satış kilosu */}
-                                  {!isBoru && (
+                                  {/* Dolu ürünleri için kesim uzunluğu: siparişteki uzunluk gösterilir (editlenemez) */}
+                                  {isDolu && item.length && (
                                     <div>
                                       <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Kesim Uzunluğu (mm)
                                       </label>
                                       <input
                                         type="number"
-                                        value={selectedProduct.cutLength || ''}
-                                        onChange={(e) => updateProductData(index, productIndex, 'cutLength', e.target.value, products)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                        placeholder="0"
+                                        value={item.length}
+                                        readOnly
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
                                       />
                                     </div>
                                   )}
@@ -1004,14 +1130,31 @@ const OrderDetail = () => {
                           </div>
 
                           {/* Add Product Button */}
-                          <button
-                            onClick={() => addProductToItem(index)}
-                            type="button"
-                            className="mt-4 w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-primary-500 hover:text-primary-600 transition-colors flex items-center justify-center"
-                          >
-                            <FiPlus className="mr-2" />
-                            Başka Bir Stok Ürünü Ekle
-                          </button>
+                          {(() => {
+                            // Toplam adet hesapla
+                            const totalQuantity = itemSelectedProducts.reduce((sum, sp) => {
+                              return sum + (parseInt(sp.quantity) || 0);
+                            }, 0);
+                            
+                            // Eğer toplam adet sipariş miktarına eşit veya fazlaysa butonu deaktive et
+                            const isDisabled = totalQuantity >= quantity;
+                            
+                            return (
+                              <button
+                                onClick={() => addProductToItem(index)}
+                                type="button"
+                                disabled={isDisabled}
+                                className={`mt-4 w-full px-4 py-2 border-2 border-dashed rounded-lg transition-colors flex items-center justify-center ${
+                                  isDisabled
+                                    ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
+                                    : 'border-gray-300 text-gray-600 hover:border-primary-500 hover:text-primary-600'
+                                }`}
+                              >
+                                <FiPlus className="mr-2" />
+                                Başka Bir Stok Ürünü Ekle
+                              </button>
+                            );
+                          })()}
 
                           {products.length === 0 && !isLoading && (
                             <p className="text-xs text-red-500 mt-2">Bu özelliklerde stok ürünü bulunamadı</p>

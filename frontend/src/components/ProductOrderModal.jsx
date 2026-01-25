@@ -41,6 +41,16 @@ const ProductOrderModal = ({
       newErrors.length = 'Uzunluk girilmelidir';
     }
 
+    // Dolu ürünlerde kontrol: girilen uzunluk * adet <= ürün uzunluğu
+    if (formData.length && formData.quantity && product?.length !== undefined) {
+      const totalLength = parseFloat(formData.length) * parseInt(formData.quantity);
+      const productLength = parseFloat(product.length);
+      
+      if (totalLength > productLength) {
+        newErrors.stock = `Toplam uzunluk (${totalLength}mm) ürün uzunluğunu (${productLength}mm) geçemez`;
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -104,13 +114,11 @@ const ProductOrderModal = ({
 
   if (!isOpen) return null;
 
-  const extraFields = category?.finalFields ? filterFixedFields(category.finalFields) : {};
-
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in">
       <div className="bg-white rounded-2xl max-w-2xl w-full p-6 my-8 shadow-strong border border-gray-100 animate-slide-up">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-900">Ürün Detayları</h3>
+          <h3 className="text-xl font-bold text-gray-900">Kesim Detayları</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <FiX className="text-2xl" />
           </button>
@@ -145,8 +153,18 @@ const ProductOrderModal = ({
                   if (e.target.value && errors.length) {
                     setErrors({ ...errors, length: '' });
                   }
+                  // Uzunluk değiştiğinde kontrol et: girilen uzunluk * adet <= ürün uzunluğu
+                  if (e.target.value && formData.quantity && product?.length !== undefined) {
+                    const totalLength = parseFloat(e.target.value) * parseInt(formData.quantity);
+                    const productLength = parseFloat(product.length);
+                    if (totalLength > productLength) {
+                      setErrors({ ...errors, stock: `Toplam uzunluk (${totalLength}mm) ürün uzunluğunu (${productLength}mm) geçemez` });
+                    } else {
+                      setErrors({ ...errors, stock: '' });
+                    }
+                  }
                 }}
-                className={`input-field ${errors.length ? 'border-red-500' : ''}`}
+                className={`input-field ${errors.length || errors.stock ? 'border-red-500' : ''}`}
                 step="0.01"
                 min="0"
                 required
@@ -154,17 +172,35 @@ const ProductOrderModal = ({
               {errors.length && (
                 <p className="text-red-500 text-xs mt-1">{errors.length}</p>
               )}
+              {errors.stock && (
+                <p className="text-red-500 text-xs mt-1">{errors.stock}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Adet <span className="text-red-500">*</span>
+                {product?.length !== undefined && (
+                  <span className="text-gray-500 text-xs ml-2">(Ürün Uzunluğu: {product.length}mm)</span>
+                )}
               </label>
               <input
                 type="number"
                 value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className={`input-field ${errors.quantity ? 'border-red-500' : ''}`}
+                onChange={(e) => {
+                  setFormData({ ...formData, quantity: e.target.value });
+                  // Adet değiştiğinde kontrol et: girilen uzunluk * adet <= ürün uzunluğu
+                  if (e.target.value && formData.length && product?.length !== undefined) {
+                    const totalLength = parseFloat(formData.length) * parseInt(e.target.value);
+                    const productLength = parseFloat(product.length);
+                    if (totalLength > productLength) {
+                      setErrors({ ...errors, stock: `Toplam uzunluk (${totalLength}mm) ürün uzunluğunu (${productLength}mm) geçemez` });
+                    } else {
+                      setErrors({ ...errors, stock: '' });
+                    }
+                  }
+                }}
+                className={`input-field ${errors.quantity || errors.stock ? 'border-red-500' : ''}`}
                 step="1"
                 min="1"
                 required
@@ -172,35 +208,11 @@ const ProductOrderModal = ({
               {errors.quantity && (
                 <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>
               )}
+              {errors.stock && (
+                <p className="text-red-500 text-xs mt-1">{errors.stock}</p>
+              )}
             </div>
           </div>
-
-          {/* Extra Fields */}
-          {Object.keys(extraFields).length > 0 && (
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Ekstra Özellikler</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(extraFields).map(([key, fieldValue]) => {
-                  const fieldType = getFieldType(fieldValue);
-                  
-                  return (
-                    <div key={key}>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {translateFieldName(key)}
-                      </label>
-                      <input
-                        type={getInputType(fieldValue)}
-                        value={formData.fields[key] || ''}
-                        onChange={(e) => handleFieldChange(key, e.target.value)}
-                        className="input-field"
-                        step={fieldType === 'double' ? '0.01' : '1'}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button

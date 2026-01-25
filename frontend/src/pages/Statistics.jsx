@@ -368,7 +368,7 @@ const Statistics = () => {
                     )}
 
                     {/* Wastage Weight */}
-                    {soldTotal && soldTotal.totalWastageWeight && (
+                    {soldTotal && soldTotal.totalWastageWeight !== null && soldTotal.totalWastageWeight !== undefined && (
                       <div className="card hover:shadow-strong transition-all duration-300 transform hover:-translate-y-1 border-l-4 border-l-red-500">
                         <div className="flex items-center justify-between">
                           <div>

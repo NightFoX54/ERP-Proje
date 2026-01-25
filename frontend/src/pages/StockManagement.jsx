@@ -104,6 +104,45 @@ const StockManagement = () => {
     }
   };
 
+  // Ürünleri çap ve iç çapa göre sıralama fonksiyonu
+  const sortProductsByDiameter = (products) => {
+    return [...products].sort((a, b) => {
+      // Önce çapa göre sırala
+      const diameterA = a.diameter || 0;
+      const diameterB = b.diameter || 0;
+      
+      if (diameterA !== diameterB) {
+        return diameterA - diameterB;
+      }
+      
+      // Çaplar eşitse iç çapa göre sırala
+      const getInnerDiameter = (product) => {
+        if (!product.fields || typeof product.fields !== 'object') return 0;
+        
+        for (const [key, value] of Object.entries(product.fields)) {
+          if (value !== null && value !== undefined && value !== '') {
+            const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+            const isInnerDiameter = normalizedKey.includes('iccap') || 
+                                    normalizedKey.includes('innerdiameter') ||
+                                    normalizedKey.includes('iççap') ||
+                                    normalizedKey === 'icap' ||
+                                    normalizedKey === 'innerdiam';
+            if (isInnerDiameter) {
+              const numValue = parseFloat(value);
+              return isNaN(numValue) ? 0 : numValue;
+            }
+          }
+        }
+        return 0;
+      };
+      
+      const innerDiameterA = getInnerDiameter(a);
+      const innerDiameterB = getInnerDiameter(b);
+      
+      return innerDiameterA - innerDiameterB;
+    });
+  };
+
   const handleBranchChange = (branchId) => {
     setSelectedBranchId(branchId);
     const branch = branches.find(b => b.id === branchId);
@@ -427,7 +466,7 @@ const StockManagement = () => {
                             </tr>
                           </thead>
                       <tbody className="bg-white divide-y divide-gray-100">
-                        {products.map((product) => {
+                        {sortProductsByDiameter(products).map((product) => {
                           // İç çap değerini formatla
                           const getInnerDiameterValue = () => {
                             if (!innerDiameterKey) return '-';
