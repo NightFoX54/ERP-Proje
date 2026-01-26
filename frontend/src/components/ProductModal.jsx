@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
-import { FiX } from 'react-icons/fi';
+import { FiX, FiAlertCircle } from 'react-icons/fi';
 import { filterFixedFields, translateFieldName, getFieldType, isFieldRequired } from '../utils/fieldTranslations';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,6 +22,7 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
   const [extraFields, setExtraFields] = useState({});
   const [productTypes, setProductTypes] = useState([]);
   const [isProductTypeDolu, setIsProductTypeDolu] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     // Product types'ı yükle
@@ -78,7 +79,27 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
         stock: product.stock || '',
         fields: product.fields || {},
       });
-      setExtraFields(product.fields || {});
+      
+      // Düzenleme modunda: category'deki tüm alanları product.fields ile merge et
+      if (category?.finalFields) {
+        const filteredFields = filterFixedFields(category.finalFields);
+        const mergedExtraFields = {};
+        // Önce category'deki tüm alanları boş olarak initialize et
+        Object.keys(filteredFields).forEach((key) => {
+          mergedExtraFields[key] = '';
+        });
+        // Sonra product.fields'daki mevcut değerleri üzerine yaz
+        if (product.fields) {
+          Object.keys(product.fields).forEach((key) => {
+            if (mergedExtraFields.hasOwnProperty(key)) {
+              mergedExtraFields[key] = product.fields[key];
+            }
+          });
+        }
+        setExtraFields(mergedExtraFields);
+      } else {
+        setExtraFields(product.fields || {});
+      }
     } else if (category?.finalFields) {
       // Yeni ürün için extra fields'ı initialize et (sabit alanları hariç tut)
       const filteredFields = filterFixedFields(category.finalFields);
@@ -90,29 +111,87 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
     }
   }, [product, category]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Eğer ürün tipi "dolu" değilse stock zorunlu kontrolü yap
-    if (!formData.diameter || !formData.length || !formData.weight || (!isProductTypeDolu && !formData.stock)) {
-      toast.error('Lütfen zorunlu alanları doldurunuz');
-      return;
+  const validate = () => {
+    const newErrors = {};
+
+    // Zorunlu alanlar - number alanlar için güvenli kontrol
+    const diameterValue = formData.diameter?.toString().trim();
+    if (!diameterValue || diameterValue === '') {
+      newErrors.diameter = 'Lütfen bu alanı doldurun';
     }
 
-    // Satın alma fiyatı veya kg fiyatı kontrolü: sadece yeni ürün ekleme modunda (düzenleme modunda fiyatlar readonly)
+    const lengthValue = formData.length?.toString().trim();
+    if (!lengthValue || lengthValue === '') {
+      newErrors.length = 'Lütfen bu alanı doldurun';
+    }
+
+    const weightValue = formData.weight?.toString().trim();
+    if (!weightValue || weightValue === '') {
+      newErrors.weight = 'Lütfen bu alanı doldurun';
+    }
+
+    if (!isProductTypeDolu) {
+      const stockValue = formData.stock?.toString().trim();
+      if (!stockValue || stockValue === '') {
+        newErrors.stock = 'Lütfen bu alanı doldurun';
+      }
+    }
+
+    // Satın alma fiyatı veya kg fiyatı kontrolü: sadece yeni ürün ekleme modunda
     if (canManage && !isEdit) {
-      const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
-      const hasPurchaseKgPrice = formData.purchaseKgPrice && formData.purchaseKgPrice.trim() !== '';
+      const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.toString().trim() !== '';
+      const hasPurchaseKgPrice = formData.purchaseKgPrice && formData.purchaseKgPrice.toString().trim() !== '';
       
       if (!hasPurchasePrice && !hasPurchaseKgPrice) {
-        toast.error('Satın alma fiyatı veya satın alma kg fiyatından birini girmeniz zorunludur');
-        return;
+        newErrors.purchasePrice = 'Satın alma fiyatı veya satın alma kg fiyatından birini girmeniz zorunludur';
+        newErrors.purchaseKgPrice = 'Satın alma fiyatı veya satın alma kg fiyatından birini girmeniz zorunludur';
       }
       
       if (hasPurchasePrice && hasPurchaseKgPrice) {
-        toast.error('Satın alma fiyatı ve satın alma kg fiyatından sadece birini girebilirsiniz');
-        return;
+        newErrors.purchasePrice = 'Satın alma fiyatı ve satın alma kg fiyatından sadece birini girebilirsiniz';
+        newErrors.purchaseKgPrice = 'Satın alma fiyatı ve satın alma kg fiyatından sadece birini girebilirsiniz';
       }
+    }
+
+    // Extra fields validasyonu
+    if (category?.finalFields) {
+      const filteredFields = filterFixedFields(category.finalFields);
+      Object.entries(filteredFields).forEach(([key, fieldValue]) => {
+        const required = isFieldRequired(fieldValue);
+        if (required) {
+          const extraFieldValue = extraFields[key];
+          const fieldType = getFieldType(fieldValue);
+          
+          // String alanlar için
+          if (fieldType === 'string') {
+            if (!extraFieldValue || (typeof extraFieldValue === 'string' && extraFieldValue.trim() === '')) {
+              newErrors[`extra_${key}`] = 'Lütfen bu alanı doldurun';
+            }
+          } 
+          // Number alanlar için (integer, double)
+          else {
+            if (extraFieldValue === null || extraFieldValue === undefined || extraFieldValue === '') {
+              newErrors[`extra_${key}`] = 'Lütfen bu alanı doldurun';
+            } else {
+              const numValue = parseFloat(extraFieldValue);
+              if (isNaN(numValue)) {
+                newErrors[`extra_${key}`] = 'Lütfen bu alanı doldurun';
+              }
+            }
+          }
+        }
+      });
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validate()) {
+      return;
     }
 
     try {
@@ -129,7 +208,7 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
 
       // Eğer stok yönetimi yetkisi varsa ve yeni ürün ekleniyorsa, purchasePrice veya kgPrice gönder (düzenleme modunda fiyatlar backend'de korunur)
       if (canManage && !isEdit) {
-        const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.trim() !== '';
+        const hasPurchasePrice = formData.purchasePrice && formData.purchasePrice.toString().trim() !== '';
         if (hasPurchasePrice) {
           productData.purchasePrice = parseFloat(formData.purchasePrice);
         } else {
@@ -148,10 +227,16 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
       onSave();
     } catch (error) {
       console.error('Error saving product:', error);
-      toast.error('Ürün kaydedilirken bir hata oluştu');
+      const errorMessage = error.response?.data?.message || error.message || 'Ürün kaydedilirken bir hata oluştu';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClose = () => {
+    setErrors({});
+    onClose();
   };
 
   const handleExtraFieldChange = (key, value) => {
@@ -159,6 +244,14 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
       ...extraFields,
       [key]: value,
     });
+    // Hata varsa temizle
+    if (errors[`extra_${key}`]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`extra_${key}`];
+        return newErrors;
+      });
+    }
   };
 
   const getInputType = (fieldValue) => {
@@ -183,14 +276,14 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
             {isEdit ? 'Ürün Düzenle' : 'Yeni Ürün Ekle'}
           </h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-gray-600"
           >
             <FiX className="text-2xl" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {/* All Fields - Sabit alanlar ve extra fields birlikte */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Sabit Alanlar */}
@@ -201,11 +294,25 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               <input
                 type="number"
                 value={formData.diameter}
-                onChange={(e) => setFormData({ ...formData, diameter: e.target.value })}
-                className="input-field"
-                required
+                onChange={(e) => {
+                  setFormData({ ...formData, diameter: e.target.value });
+                  if (errors.diameter) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.diameter;
+                      return newErrors;
+                    });
+                  }
+                }}
+                className={`input-field ${errors.diameter ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                 step="0.1"
               />
+              {errors.diameter && (
+                <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                  <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                  <p className="text-sm text-gray-800">{errors.diameter}</p>
+                </div>
+              )}
             </div>
 
             {/* İç çap field'ı - çap'tan hemen sonra */}
@@ -237,10 +344,15 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                     type={getInputType(fieldValue)}
                     value={extraFields[innerDiameterKey] || ''}
                     onChange={(e) => handleExtraFieldChange(innerDiameterKey, e.target.value)}
-                    className="input-field"
+                    className={`input-field ${errors[`extra_${innerDiameterKey}`] ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     step={fieldType === 'double' ? '0.01' : '1'}
-                    required={required}
                   />
+                  {errors[`extra_${innerDiameterKey}`] && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                      <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-sm text-gray-800">{errors[`extra_${innerDiameterKey}`]}</p>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -252,11 +364,25 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               <input
                 type="number"
                 value={formData.length}
-                onChange={(e) => setFormData({ ...formData, length: e.target.value })}
-                className="input-field"
-                required
+                onChange={(e) => {
+                  setFormData({ ...formData, length: e.target.value });
+                  if (errors.length) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.length;
+                      return newErrors;
+                    });
+                  }
+                }}
+                className={`input-field ${errors.length ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                 step="0.01"
               />
+              {errors.length && (
+                <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                  <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                  <p className="text-sm text-gray-800">{errors.length}</p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -266,11 +392,25 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               <input
                 type="number"
                 value={formData.weight}
-                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                className="input-field"
-                required
+                onChange={(e) => {
+                  setFormData({ ...formData, weight: e.target.value });
+                  if (errors.weight) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.weight;
+                      return newErrors;
+                    });
+                  }
+                }}
+                className={`input-field ${errors.weight ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                 step="0.01"
               />
+              {errors.weight && (
+                <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                  <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                  <p className="text-sm text-gray-800">{errors.weight}</p>
+                </div>
+              )}
             </div>
 
             {!isProductTypeDolu && (
@@ -281,12 +421,26 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                 <input
                   type="number"
                   value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  className="input-field"
-                  required
+                  onChange={(e) => {
+                    setFormData({ ...formData, stock: e.target.value });
+                    if (errors.stock) {
+                      setErrors(prev => {
+                        const newErrors = { ...prev };
+                        delete newErrors.stock;
+                        return newErrors;
+                      });
+                    }
+                  }}
+                  className={`input-field ${errors.stock ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   step="1"
                   min="0"
                 />
+                {errors.stock && (
+                  <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                    <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                    <p className="text-sm text-gray-800">{errors.stock}</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -312,14 +466,29 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                           // Eğer purchasePrice giriliyorsa purchaseKgPrice'ı temizle
                           purchaseKgPrice: value ? '' : formData.purchaseKgPrice
                         });
+                        // Hataları temizle
+                        if (errors.purchasePrice || errors.purchaseKgPrice) {
+                          setErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.purchasePrice;
+                            delete newErrors.purchaseKgPrice;
+                            return newErrors;
+                          });
+                        }
                       }
                     }}
-                    className="input-field"
+                    className={`input-field ${errors.purchasePrice ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     step="0.01"
                     min="0"
                     disabled={isEdit || !!formData.purchaseKgPrice}
                     readOnly={isEdit}
                   />
+                  {errors.purchasePrice && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                      <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-sm text-gray-800">{errors.purchasePrice}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -341,14 +510,29 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                           // Eğer purchaseKgPrice giriliyorsa purchasePrice'ı temizle
                           purchasePrice: value ? '' : formData.purchasePrice
                         });
+                        // Hataları temizle
+                        if (errors.purchasePrice || errors.purchaseKgPrice) {
+                          setErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.purchasePrice;
+                            delete newErrors.purchaseKgPrice;
+                            return newErrors;
+                          });
+                        }
                       }
                     }}
-                    className="input-field"
+                    className={`input-field ${errors.purchaseKgPrice ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     step="0.01"
                     min="0"
                     disabled={isEdit || !!formData.purchasePrice}
                     readOnly={isEdit}
                   />
+                  {errors.purchaseKgPrice && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                      <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-sm text-gray-800">{errors.purchaseKgPrice}</p>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -382,10 +566,15 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                         type={getInputType(fieldValue)}
                         value={extraFields[key] || ''}
                         onChange={(e) => handleExtraFieldChange(key, e.target.value)}
-                        className="input-field"
+                        className={`input-field ${errors[`extra_${key}`] ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                         step={fieldType === 'double' ? '0.01' : '1'}
-                        required={required}
                       />
+                      {errors[`extra_${key}`] && (
+                        <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                          <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                          <p className="text-sm text-gray-800">{errors[`extra_${key}`]}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -395,7 +584,7 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="btn-secondary"
               disabled={loading}
             >

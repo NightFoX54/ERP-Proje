@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
-import { FiX, FiPlus, FiTrash2, FiInfo } from 'react-icons/fi';
+import { FiX, FiPlus, FiTrash2, FiInfo, FiAlertCircle } from 'react-icons/fi';
 import ExtraFieldModal from './ExtraFieldModal';
 import { translateFieldName, isFixedField, filterFixedFields } from '../utils/fieldTranslations';
 
@@ -19,6 +19,7 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [loadingTypes, setLoadingTypes] = useState(true);
   const [showExtraFieldModal, setShowExtraFieldModal] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     fetchProductTypes();
@@ -30,6 +31,14 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
       setSelectedProductType(productType);
       // Required fields'ı backend'den gelen haliyle tut (backend'e gönderirken aynı key'leri kullanmak için)
       setRequiredFields(productType?.requiredFields || {});
+      // Ürün tipi seçildiğinde hata mesajını temizle
+      if (errors.productTypeId) {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.productTypeId;
+          return newErrors;
+        });
+      }
     }
   }, [formData.productTypeId, productTypes]);
 
@@ -47,11 +56,25 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
     }
   };
 
+  const validate = () => {
+    const newErrors = {};
+
+    if (!formData.name || formData.name.trim() === '') {
+      newErrors.name = 'Lütfen bu alanı doldurun';
+    }
+
+    if (!formData.productTypeId || formData.productTypeId === '') {
+      newErrors.productTypeId = 'Lütfen bu alanı doldurun';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.productTypeId) {
-      toast.error('Lütfen zorunlu alanları doldurunuz');
+    if (!validate()) {
       return;
     }
 
@@ -116,6 +139,11 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
     toast.success(`${field.name} alanı eklendi`);
   };
 
+  const handleClose = () => {
+    setErrors({});
+    onClose();
+  };
+
   const removeExtraField = (fieldName) => {
     const newFields = { ...extraFields };
     delete newFields[fieldName];
@@ -144,12 +172,12 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
       <div className="bg-white rounded-2xl max-w-2xl w-full p-6 my-8 shadow-strong border border-gray-100 animate-slide-up">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-gray-900">Yeni Ürün Başlığı Ekle</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
             <FiX className="text-2xl" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Başlık Adı <span className="text-red-500">*</span>
@@ -157,11 +185,26 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input-field"
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value });
+                // Hata varsa temizle
+                if (errors.name) {
+                  setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.name;
+                    return newErrors;
+                  });
+                }
+              }}
+              className={`input-field ${errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
               placeholder="Örn: İmalat, Islah, ST52, ST44"
-              required
             />
+            {errors.name && (
+              <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                <p className="text-sm text-gray-800">{errors.name}</p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -171,9 +214,18 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
             <div className="select-wrapper">
               <select
                 value={formData.productTypeId}
-                onChange={(e) => setFormData({ ...formData, productTypeId: e.target.value })}
-                className="input-field"
-                required
+                onChange={(e) => {
+                  setFormData({ ...formData, productTypeId: e.target.value });
+                  // Hata varsa temizle
+                  if (errors.productTypeId) {
+                    setErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.productTypeId;
+                      return newErrors;
+                    });
+                  }
+                }}
+                className={`input-field ${errors.productTypeId ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                 disabled={loadingTypes}
               >
                 <option value="">
@@ -186,9 +238,16 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
                 ))}
               </select>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Seçilen ürün tipine göre zorunlu alanlar otomatik eklenecektir
-            </p>
+            {errors.productTypeId ? (
+              <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                <p className="text-sm text-gray-800">{errors.productTypeId}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                Seçilen ürün tipine göre zorunlu alanlar otomatik eklenecektir
+              </p>
+            )}
           </div>
 
           {/* Required Fields Preview */}
@@ -318,7 +377,7 @@ const ProductCategoryModal = ({ branchId, onClose, onSave }) => {
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="btn-secondary"
               disabled={loading}
             >

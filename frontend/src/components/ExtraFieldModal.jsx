@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiX } from 'react-icons/fi';
+import { FiX, FiAlertCircle } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 
 const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
@@ -12,7 +12,7 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
     const newErrors = {};
     
     if (!fieldName || fieldName.trim() === '') {
-      newErrors.fieldName = 'Alan adı gereklidir';
+      newErrors.fieldName = 'Lütfen bu alanı doldurun';
     } else {
       // existingFields artık { fieldName: { datatype, required } } formatında olabilir
       const fieldKey = fieldName.trim();
@@ -69,7 +69,7 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Alan Adı <span className="text-red-500">*</span>
@@ -77,13 +77,25 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
             <input
               type="text"
               value={fieldName}
-              onChange={(e) => setFieldName(e.target.value)}
-              className={`input-field ${errors.fieldName ? 'border-red-500' : ''}`}
+              onChange={(e) => {
+                setFieldName(e.target.value);
+                // Hata varsa temizle
+                if (errors.fieldName) {
+                  setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.fieldName;
+                    return newErrors;
+                  });
+                }
+              }}
+              className={`input-field ${errors.fieldName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
               placeholder="Örn: Açıklama, Not, Detay"
-              required
             />
             {errors.fieldName && (
-              <p className="text-red-500 text-xs mt-1">{errors.fieldName}</p>
+              <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                <p className="text-sm text-gray-800">{errors.fieldName}</p>
+              </div>
             )}
           </div>
 
@@ -95,7 +107,6 @@ const ExtraFieldModal = ({ isOpen, onClose, onSave, existingFields = {} }) => {
               value={fieldType}
               onChange={(e) => setFieldType(e.target.value)}
               className="input-field"
-              required
             >
               <option value="string">Metin (String)</option>
               <option value="integer">Tam Sayı (Integer)</option>

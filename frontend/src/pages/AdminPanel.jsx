@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { branchService } from '../services/branchService';
 import { toast } from 'react-toastify';
-import { FiPlus, FiTrash2, FiEdit2, FiUsers, FiMapPin } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2, FiUsers, FiMapPin, FiAlertCircle, FiX } from 'react-icons/fi';
 import Loading from '../components/Loading';
 import ConfirmationModal from '../components/ConfirmationModal';
 
@@ -17,12 +17,14 @@ const AdminPanel = () => {
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [branchForm, setBranchForm] = useState({ name: '', stockEnabled: true });
   const [loadingBranches, setLoadingBranches] = useState(true);
+  const [branchErrors, setBranchErrors] = useState({});
 
   // Users state
   const [users, setUsers] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userForm, setUserForm] = useState({ username: '', password: '', branchId: '' });
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [userErrors, setUserErrors] = useState({});
   
   // Delete confirmation modal state
   const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
@@ -85,13 +87,30 @@ const AdminPanel = () => {
     }
   };
 
+  const validateBranchForm = () => {
+    const newErrors = {};
+
+    if (!branchForm.name || branchForm.name.trim() === '') {
+      newErrors.name = 'Lütfen bu alanı doldurun';
+    }
+
+    setBranchErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleCreateBranch = async (e) => {
     e.preventDefault();
+    
+    if (!validateBranchForm()) {
+      return;
+    }
+
     try {
       await branchService.createBranch(branchForm.name, branchForm.stockEnabled);
       toast.success('Şube başarıyla oluşturuldu');
       setShowBranchModal(false);
       setBranchForm({ name: '', stockEnabled: true });
+      setBranchErrors({});
       fetchBranches();
     } catch (error) {
       console.error('Error creating branch:', error);
@@ -135,11 +154,29 @@ const AdminPanel = () => {
     }
   };
 
+  const validateUserForm = () => {
+    const newErrors = {};
+
+    if (!userForm.username || userForm.username.trim() === '') {
+      newErrors.username = 'Lütfen bu alanı doldurun';
+    }
+
+    if (!userForm.password || userForm.password.trim() === '') {
+      newErrors.password = 'Lütfen bu alanı doldurun';
+    }
+
+    if (!userForm.branchId || userForm.branchId === '') {
+      newErrors.branchId = 'Lütfen bu alanı doldurun';
+    }
+
+    setUserErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
     
-    if (!userForm.username || !userForm.password || !userForm.branchId) {
-      toast.error('Lütfen tüm alanları doldurunuz');
+    if (!validateUserForm()) {
       return;
     }
 
@@ -148,6 +185,7 @@ const AdminPanel = () => {
       toast.success('Kullanıcı başarıyla oluşturuldu');
       setShowUserModal(false);
       setUserForm({ username: '', password: '', branchId: '' });
+      setUserErrors({});
       fetchUsers();
     } catch (error) {
       console.error('Error creating user:', error);
@@ -378,22 +416,48 @@ const AdminPanel = () => {
         {showBranchModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-strong border border-gray-100 animate-slide-up">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Yeni Şube Ekle</h3>
-              <form onSubmit={handleCreateBranch}>
-                <div className="mb-4">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Yeni Şube Ekle</h3>
+                <button
+                  onClick={() => {
+                    setShowBranchModal(false);
+                    setBranchForm({ name: '', stockEnabled: true });
+                    setBranchErrors({});
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FiX className="text-2xl" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateBranch} className="space-y-4" noValidate>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Şube Adı
+                    Şube Adı <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={branchForm.name}
-                    onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
-                    className="input-field"
+                    onChange={(e) => {
+                      setBranchForm({ ...branchForm, name: e.target.value });
+                      if (branchErrors.name) {
+                        setBranchErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.name;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    className={`input-field ${branchErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="Örn: İkitelli"
-                    required
                   />
+                  {branchErrors.name && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                      <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-sm text-gray-800">{branchErrors.name}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="mb-4">
+                <div>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -409,12 +473,13 @@ const AdminPanel = () => {
                     Bu şube için stok yönetimi aktif olacak mı?
                   </p>
                 </div>
-                <div className="flex justify-end space-x-3">
+                <div className="flex justify-end space-x-3 pt-4 border-t">
                   <button
                     type="button"
                     onClick={() => {
                       setShowBranchModal(false);
                       setBranchForm({ name: '', stockEnabled: true });
+                      setBranchErrors({});
                     }}
                     className="btn-secondary"
                   >
@@ -433,44 +498,92 @@ const AdminPanel = () => {
         {showUserModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-strong border border-gray-100 animate-slide-up">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Yeni Kullanıcı Ekle</h3>
-              <form onSubmit={handleCreateUser}>
-                <div className="mb-4">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Yeni Kullanıcı Ekle</h3>
+                <button
+                  onClick={() => {
+                    setShowUserModal(false);
+                    setUserForm({ username: '', password: '', branchId: '' });
+                    setUserErrors({});
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FiX className="text-2xl" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateUser} className="space-y-4" noValidate>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Kullanıcı Adı
+                    Kullanıcı Adı <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={userForm.username}
-                    onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                    className="input-field"
+                    onChange={(e) => {
+                      setUserForm({ ...userForm, username: e.target.value });
+                      if (userErrors.username) {
+                        setUserErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.username;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    className={`input-field ${userErrors.username ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="Kullanıcı adı"
-                    required
                   />
+                  {userErrors.username && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                      <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-sm text-gray-800">{userErrors.username}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="mb-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Şifre
+                    Şifre <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="password"
                     value={userForm.password}
-                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    className="input-field"
+                    onChange={(e) => {
+                      setUserForm({ ...userForm, password: e.target.value });
+                      if (userErrors.password) {
+                        setUserErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.password;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    className={`input-field ${userErrors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="Şifre"
-                    required
                   />
+                  {userErrors.password && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                      <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-sm text-gray-800">{userErrors.password}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="mb-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Şube
+                    Şube <span className="text-red-500">*</span>
                   </label>
                   <div className="select-wrapper">
                     <select
                       value={userForm.branchId}
-                      onChange={(e) => setUserForm({ ...userForm, branchId: e.target.value })}
-                      className="input-field"
-                      required
+                      onChange={(e) => {
+                        setUserForm({ ...userForm, branchId: e.target.value });
+                        if (userErrors.branchId) {
+                          setUserErrors(prev => {
+                            const newErrors = { ...prev };
+                            delete newErrors.branchId;
+                            return newErrors;
+                          });
+                        }
+                      }}
+                      className={`input-field ${userErrors.branchId ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     >
                       <option value="">Şube Seçiniz</option>
                       {branches.map((branch) => (
@@ -480,13 +593,20 @@ const AdminPanel = () => {
                       ))}
                     </select>
                   </div>
+                  {userErrors.branchId && (
+                    <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
+                      <FiAlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" size={16} />
+                      <p className="text-sm text-gray-800">{userErrors.branchId}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-end space-x-3">
+                <div className="flex justify-end space-x-3 pt-4 border-t">
                   <button
                     type="button"
                     onClick={() => {
                       setShowUserModal(false);
                       setUserForm({ username: '', password: '', branchId: '' });
+                      setUserErrors({});
                     }}
                     className="btn-secondary"
                   >

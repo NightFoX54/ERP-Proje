@@ -26,6 +26,7 @@ com\erp\erpproject\service\OrderService.class
 com\erp\erpproject\dto\LoginRegisterResponseDto.class
 com\erp\erpproject\dto\LoginRequestDto.class
 com\erp\erpproject\dto\RegiterRequestDto.class
+com\erp\erpproject\dto\MainPageStatisticsDto.class
 com\erp\erpproject\dto\DateRangeDto.class
 com\erp\erpproject\repository\ProductRepository.class
 com\erp\erpproject\model\ProductType.class
