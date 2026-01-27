@@ -35,8 +35,9 @@ public class OrderService {
     }
 
     public Orders createOrder(Orders order) {
+        order = ordersRepository.save(order);
         notificationsService.sendOrderCreationNotification(order.getId(), order.getOrderDeliveryBranchId(), order.getCustomerName());
-        return ordersRepository.save(order);
+        return order;
     }
 
     public List<Orders> getOrdersByOrderStatus(OrderStatus orderStatus) {
