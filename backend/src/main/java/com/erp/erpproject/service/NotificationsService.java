@@ -39,7 +39,7 @@ public class NotificationsService {
     }
 
     public void sendOrderCreationNotification(String orderId, String deliveryBranchId, String customerName){
-        String message = customerName + "isimli müşteriye yeni bir sipariş oluşturuldu.";
+        String message = customerName + " isimli müşteriye yeni bir sipariş oluşturuldu.";
 
         List<Accounts> accounts = accountsRepository.findByBranchId(deliveryBranchId);
         List<Accounts> admins = accountsRepository.findByBranchId("0"); // 0 is the admin branch id
@@ -52,6 +52,6 @@ public class NotificationsService {
     }
 
     public List<Notifications> getUnreadNotificationsByAccountId(String accountId) {
-        return notificationsRepository.findByAccountIdAndRead(accountId, false);
+        return notificationsRepository.findByAccountIdAndIsRead(accountId, false);
     }
 }

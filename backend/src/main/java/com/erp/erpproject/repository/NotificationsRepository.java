@@ -12,11 +12,11 @@ public interface NotificationsRepository extends MongoRepository<Notifications, 
 
     List<Notifications> findByAccountId(String accountId);
     List<Notifications> findByDeliveryBranchId(String deliveryBranchId);
-    List<Notifications> findByAccountIdAndRead(String accountId, boolean read);
+    List<Notifications> findByAccountIdAndIsRead(String accountId, boolean isRead);
     List<Notifications> findByCreatedAt(String createdAt);
     List<Notifications> findByMessage(String message);
     List<Notifications> findByAccountIdAndDeliveryBranchId(String accountId, String deliveryBranchId);
-    List<Notifications> findByAccountIdAndDeliveryBranchIdAndRead(String accountId, String deliveryBranchId, boolean read);
+    List<Notifications> findByAccountIdAndDeliveryBranchIdAndIsRead(String accountId, String deliveryBranchId, boolean isRead);
     List<Notifications> findByAccountIdAndDeliveryBranchIdAndCreatedAt(String accountId, String deliveryBranchId, String createdAt);
     List<Notifications> findByAccountIdAndDeliveryBranchIdAndMessage(String accountId, String deliveryBranchId, String message);
 }
