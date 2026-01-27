@@ -28,12 +28,14 @@ public class OrderService {
     private ProductTypeRepository productTypeRepository;
     @Autowired
     private ProductCategoriesRepository productCategoriesRepository;
-
+    @Autowired
+    private NotificationsService notificationsService;
     public List<Orders> getOrders() {
         return ordersRepository.findAllByOrderByOrderGivenDateDesc();
     }
 
     public Orders createOrder(Orders order) {
+        notificationsService.sendOrderCreationNotification(order.getId(), order.getOrderDeliveryBranchId(), order.getCustomerName());
         return ordersRepository.save(order);
     }
 

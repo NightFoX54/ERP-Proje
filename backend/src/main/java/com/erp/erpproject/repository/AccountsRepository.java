@@ -12,4 +12,5 @@ public interface AccountsRepository extends MongoRepository<Accounts, String> {
     boolean existsByUsername(String username);
     List<Accounts> findByAccountType(Accounts.AccountType accountType);
     void deleteById(String id);
+    List<Accounts> findByBranchId(String branchId);
 }

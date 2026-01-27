@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FiBell } from 'react-icons/fi';
+import api from '../utils/api';
 
 const NotificationContext = createContext(null);
 
@@ -21,18 +22,69 @@ export const NotificationProvider = ({ children }) => {
       }
     }
 
-    // Polling ile yeni bildirimleri kontrol et (her 30 saniyede bir)
-    // TODO: WebSocket veya Server-Sent Events ile gerçek zamanlı bildirimler eklendiğinde güncellenecek
+    // İlk yüklemede bildirimleri çek
+    checkNewNotifications();
+
+    // Polling ile yeni bildirimleri kontrol et (her 45 saniyede bir)
     const interval = setInterval(() => {
       checkNewNotifications();
-    }, 30000);
+    }, 45000); // 45 saniye (30-60 arası orta nokta)
 
     return () => clearInterval(interval);
   }, []);
 
   const checkNewNotifications = async () => {
-    // TODO: Backend'den yeni bildirimleri çek
-    // Şimdilik placeholder - backend endpoint hazır olduğunda güncellenecek
+    try {
+      const response = await api.get('/notifications/unread');
+      const backendNotifications = response.data || [];
+
+      // Backend'den gelen bildirimleri frontend formatına dönüştür
+      const formattedNotifications = backendNotifications.map(notif => ({
+        id: notif.id,
+        orderId: notif.orderId,
+        message: notif.message,
+        read: notif.isRead || false,
+        createdAt: notif.createdAt || new Date().toISOString(),
+        accountId: notif.accountId,
+        deliveryBranchId: notif.deliveryBranchId,
+      }));
+
+      // Mevcut bildirimlerle karşılaştır ve yeni olanları bul
+      setNotifications(prevNotifications => {
+        const existingIds = new Set(prevNotifications.map(n => n.id));
+        const newNotifications = formattedNotifications.filter(n => !existingIds.has(n.id));
+        
+        // Yeni bildirimler için toast göster
+        newNotifications.forEach(notif => {
+          if (!notif.read) {
+            toast.info(notif.message, {
+              icon: <FiBell className="text-primary-500" />,
+              position: 'top-right',
+            });
+          }
+        });
+
+        // Tüm bildirimleri birleştir (backend'den gelenler öncelikli)
+        const allNotifications = [
+          ...formattedNotifications,
+          ...prevNotifications.filter(n => !formattedNotifications.find(bn => bn.id === n.id))
+        ]
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(0, 50); // Son 50 bildirimi tut
+
+        // Unread count'u güncelle
+        const unread = allNotifications.filter(n => !n.read).length;
+        setUnreadCount(unread);
+
+        // localStorage'a kaydet
+        localStorage.setItem('notifications', JSON.stringify(allNotifications));
+
+        return allNotifications;
+      });
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      // Hata durumunda sessizce devam et, kullanıcıyı rahatsız etme
+    }
   };
 
   const addNotification = (notification) => {
