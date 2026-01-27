@@ -54,4 +54,12 @@ public class NotificationsService {
     public List<Notifications> getUnreadNotificationsByAccountId(String accountId) {
         return notificationsRepository.findByAccountIdAndIsRead(accountId, false);
     }
+
+    public void readNotification(String notificationId) {
+        Notifications notification = notificationsRepository.findById(notificationId).orElse(null);
+        if (notification != null) {
+            notification.setRead(true);
+            notificationsRepository.save(notification);
+        }
+    }
 }

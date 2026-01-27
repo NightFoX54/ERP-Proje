@@ -107,16 +107,48 @@ export const NotificationProvider = ({ children }) => {
     });
   };
 
-  const markAsRead = (notificationId) => {
-    const updated = notifications.map(n =>
-      n.id === notificationId ? { ...n, read: true } : n
-    );
-    setNotifications(updated);
-    setUnreadCount(prev => Math.max(0, prev - 1));
-    localStorage.setItem('notifications', JSON.stringify(updated));
+  const markAsRead = async (notificationId) => {
+    try {
+      // Backend'e bildirimi okundu olarak işaretle
+      await api.post('/notifications/read', null, {
+        params: { notificationId }
+      });
+      
+      // Local state'i güncelle
+      const updated = notifications.map(n =>
+        n.id === notificationId ? { ...n, read: true } : n
+      );
+      setNotifications(updated);
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      localStorage.setItem('notifications', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      // Hata olsa bile local state'i güncelle
+      const updated = notifications.map(n =>
+        n.id === notificationId ? { ...n, read: true } : n
+      );
+      setNotifications(updated);
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      localStorage.setItem('notifications', JSON.stringify(updated));
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    // Tüm okunmamış bildirimleri backend'e gönder
+    const unreadNotifications = notifications.filter(n => !n.read);
+    try {
+      await Promise.all(
+        unreadNotifications.map(notif => 
+          api.post('/notifications/read', null, {
+            params: { notificationId: notif.id }
+          })
+        )
+      );
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+    
+    // Local state'i güncelle
     const updated = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updated);
     setUnreadCount(0);

@@ -2,7 +2,9 @@ package com.erp.erpproject.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.erp.erpproject.security.UserPrincipal;
@@ -24,5 +26,9 @@ public class NotificationsController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         return notificationsService.getUnreadNotificationsByAccountId(userPrincipal.getAccountId());
+    }
+    @PostMapping("/read")
+    public void readNotification(@RequestParam String notificationId) {
+        notificationsService.readNotification(notificationId);
     }
 }
