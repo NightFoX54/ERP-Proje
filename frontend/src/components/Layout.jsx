@@ -49,7 +49,12 @@ const Layout = ({ children }) => {
     };
   }, []);
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = async (e, notification) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('Notification clicked:', notification);
+    
     // Bildirimi okundu olarak işaretle
     if (!notification.read) {
       await markAsRead(notification.id);
@@ -60,7 +65,12 @@ const Layout = ({ children }) => {
     
     // Sipariş detay sayfasına yönlendir
     if (notification.orderId) {
+      console.log('Navigating to order:', notification.orderId);
       navigate(`/orders/${notification.orderId}`);
+    } else {
+      console.warn('Notification has no orderId:', notification);
+      toast.warning('Bu bildirimde sipariş bilgisi bulunamadı');
+      navigate('/orders');
     }
   };
 
@@ -159,7 +169,9 @@ const Layout = ({ children }) => {
                       <h3 className="text-sm font-semibold text-gray-900">Bildirimler</h3>
                       {unreadCount > 0 && (
                         <button
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             await markAllAsRead();
                             setNotificationDropdownOpen(false);
                           }}
@@ -181,7 +193,7 @@ const Layout = ({ children }) => {
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            onClick={() => handleNotificationClick(notification)}
+                            onClick={(e) => handleNotificationClick(e, notification)}
                             className={`px-4 py-3 border-b border-gray-100 cursor-pointer transition-colors hover:bg-pastel-lightBlue/30 ${
                               !notification.read ? 'bg-primary-50/50' : ''
                             }`}

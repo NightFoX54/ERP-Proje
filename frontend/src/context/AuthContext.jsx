@@ -178,6 +178,13 @@ export const AuthProvider = ({ children }) => {
       tokenCheckIntervalRef.current = null;
     }
     
+    // Eski kullanıcının bildirimlerini temizle
+    const oldUser = user;
+    if (oldUser?.username) {
+      const notificationKey = `notifications_${oldUser.username}`;
+      localStorage.removeItem(notificationKey);
+    }
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);

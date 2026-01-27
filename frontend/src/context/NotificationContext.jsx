@@ -2,21 +2,38 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { FiBell } from 'react-icons/fi';
 import api from '../utils/api';
+import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
 
+// Kullanıcıya özel localStorage key'i oluştur (username kullanarak)
+const getNotificationStorageKey = (username) => {
+  return username ? `notifications_${username}` : 'notifications';
+};
+
 export const NotificationProvider = ({ children }) => {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    // localStorage'dan bildirimleri yükle
-    const savedNotifications = localStorage.getItem('notifications');
+    // Kullanıcı değiştiğinde bildirimleri temizle
+    if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    // Kullanıcıya özel localStorage'dan bildirimleri yükle
+    const storageKey = getNotificationStorageKey(user.username);
+    const savedNotifications = localStorage.getItem(storageKey);
     if (savedNotifications) {
       try {
         const parsed = JSON.parse(savedNotifications);
-        setNotifications(parsed);
-        setUnreadCount(parsed.filter(n => !n.read).length);
+        // Sadece okunmamış bildirimleri göster
+        const unreadOnly = parsed.filter(n => !n.read);
+        setNotifications(unreadOnly);
+        setUnreadCount(unreadOnly.length);
       } catch (error) {
         console.error('Error loading notifications:', error);
       }
@@ -31,9 +48,11 @@ export const NotificationProvider = ({ children }) => {
     }, 45000); // 45 saniye (30-60 arası orta nokta)
 
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   const checkNewNotifications = async () => {
+    if (!user) return;
+
     try {
       const response = await api.get('/notifications/unread');
       const backendNotifications = response.data || [];
@@ -64,11 +83,9 @@ export const NotificationProvider = ({ children }) => {
           }
         });
 
-        // Tüm bildirimleri birleştir (backend'den gelenler öncelikli)
-        const allNotifications = [
-          ...formattedNotifications,
-          ...prevNotifications.filter(n => !formattedNotifications.find(bn => bn.id === n.id))
-        ]
+        // Backend'den gelen bildirimler zaten sadece okunmamış olanlar
+        // Sadece backend'den gelen bildirimleri göster (okunmuş olanları localStorage'dan kaldır)
+        const allNotifications = formattedNotifications
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           .slice(0, 50); // Son 50 bildirimi tut
 
@@ -76,8 +93,9 @@ export const NotificationProvider = ({ children }) => {
         const unread = allNotifications.filter(n => !n.read).length;
         setUnreadCount(unread);
 
-        // localStorage'a kaydet
-        localStorage.setItem('notifications', JSON.stringify(allNotifications));
+        // Kullanıcıya özel localStorage'a kaydet (sadece okunmamış bildirimler)
+        const storageKey = getNotificationStorageKey(user.username);
+        localStorage.setItem(storageKey, JSON.stringify(allNotifications));
 
         return allNotifications;
       });
@@ -108,32 +126,37 @@ export const NotificationProvider = ({ children }) => {
   };
 
   const markAsRead = async (notificationId) => {
+    if (!user) return;
+
     try {
       // Backend'e bildirimi okundu olarak işaretle
       await api.post('/notifications/read', null, {
         params: { notificationId }
       });
       
-      // Local state'i güncelle
-      const updated = notifications.map(n =>
-        n.id === notificationId ? { ...n, read: true } : n
-      );
+      // Okunmuş bildirimi listeden kaldır (backend'den artık gelmeyecek)
+      const updated = notifications.filter(n => n.id !== notificationId);
       setNotifications(updated);
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      localStorage.setItem('notifications', JSON.stringify(updated));
+      setUnreadCount(updated.filter(n => !n.read).length);
+      
+      // Kullanıcıya özel localStorage'ı güncelle
+      const storageKey = getNotificationStorageKey(user.username);
+      localStorage.setItem(storageKey, JSON.stringify(updated));
     } catch (error) {
       console.error('Error marking notification as read:', error);
       // Hata olsa bile local state'i güncelle
-      const updated = notifications.map(n =>
-        n.id === notificationId ? { ...n, read: true } : n
-      );
+      const updated = notifications.filter(n => n.id !== notificationId);
       setNotifications(updated);
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      localStorage.setItem('notifications', JSON.stringify(updated));
+      setUnreadCount(updated.filter(n => !n.read).length);
+      
+      const storageKey = getNotificationStorageKey(user.username);
+      localStorage.setItem(storageKey, JSON.stringify(updated));
     }
   };
 
   const markAllAsRead = async () => {
+    if (!user) return;
+
     // Tüm okunmamış bildirimleri backend'e gönder
     const unreadNotifications = notifications.filter(n => !n.read);
     try {
@@ -148,17 +171,24 @@ export const NotificationProvider = ({ children }) => {
       console.error('Error marking all notifications as read:', error);
     }
     
-    // Local state'i güncelle
-    const updated = notifications.map(n => ({ ...n, read: true }));
-    setNotifications(updated);
+    // Tüm bildirimleri listeden kaldır (artık backend'den gelmeyecekler)
+    setNotifications([]);
     setUnreadCount(0);
-    localStorage.setItem('notifications', JSON.stringify(updated));
+    
+    // Kullanıcıya özel localStorage'ı temizle
+    const storageKey = getNotificationStorageKey(user.username);
+    localStorage.setItem(storageKey, JSON.stringify([]));
   };
 
   const clearNotifications = () => {
+    if (!user) return;
+    
     setNotifications([]);
     setUnreadCount(0);
-    localStorage.removeItem('notifications');
+    
+    // Kullanıcıya özel localStorage'ı temizle
+    const storageKey = getNotificationStorageKey(user.username);
+    localStorage.removeItem(storageKey);
   };
 
   return (
