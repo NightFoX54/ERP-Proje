@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { inventoryMetricsService, inventoryConfigService } from '../services/inventoryMetricsService';
+import { branchService } from '../services/branchService';
+import { stockService } from '../services/stockService';
 import { toast } from 'react-toastify';
 import {
   FiRefreshCw,
@@ -10,6 +12,8 @@ import {
   FiAlertCircle,
 } from 'react-icons/fi';
 import Loading from '../components/Loading';
+
+const ABC_ORDER = { A: 1, B: 2, C: 3 };
 
 const formatNumber = (num) => {
   if (num == null) return '-';
@@ -27,6 +31,7 @@ const formatDate = (dateStr) => {
 
 const InventoryMetrics = () => {
   const [metrics, setMetrics] = useState([]);
+  const [categoryMap, setCategoryMap] = useState({});
   const [config, setConfig] = useState(null);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -81,9 +86,30 @@ const InventoryMetrics = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const branches = await branchService.getBranches();
+      const map = {};
+      for (const branch of branches || []) {
+        try {
+          const categories = await stockService.getProductCategories(branch.id);
+          (categories || []).forEach((c) => {
+            if (c.id && c.name && !map[c.id]) map[c.id] = c.name;
+          });
+        } catch {
+          // branch için kategori yoksa atla
+        }
+      }
+      setCategoryMap(map);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
   useEffect(() => {
     fetchMetrics();
     fetchConfig();
+    fetchCategories();
   }, []);
 
   const handleCalculateAll = async () => {
@@ -92,6 +118,7 @@ const InventoryMetrics = () => {
       await inventoryMetricsService.calculateAll();
       toast.success('Tüm envanter metrikleri hesaplandı');
       fetchMetrics();
+      fetchCategories();
     } catch (error) {
       console.error('Error calculating metrics:', error);
       if (error.response?.status === 403) {
@@ -135,6 +162,18 @@ const InventoryMetrics = () => {
       setSavingConfig(false);
     }
   };
+
+  const getCategoryName = (productCategoryId) =>
+    categoryMap[productCategoryId] || productCategoryId || '-';
+
+  const sortedMetrics = [...metrics].sort((a, b) => {
+    const orderA = ABC_ORDER[a.abcClass] ?? 99;
+    const orderB = ABC_ORDER[b.abcClass] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return (getCategoryName(a.productCategoryId) || '').localeCompare(
+      getCategoryName(b.productCategoryId) || ''
+    );
+  });
 
   const openConfigModal = () => {
     if (config) {
@@ -210,7 +249,7 @@ const InventoryMetrics = () => {
                 <table className="min-w-full divide-y divide-gray-100">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Analytics Key</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Kategori</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Çap / İç Çap</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">ABC</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Yıllık Talep</th>
@@ -222,12 +261,14 @@ const InventoryMetrics = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {metrics.map((m) => (
+                    {sortedMetrics.map((m) => (
                       <tr
                         key={m.id}
                         className="hover:bg-gradient-to-r hover:from-primary-50/30 hover:to-transparent transition-colors"
                       >
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{m.analyticsKey}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {getCategoryName(m.productCategoryId)}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {formatNumber(m.diameter)} / {formatNumber(m.innerDiameter)}
                         </td>
