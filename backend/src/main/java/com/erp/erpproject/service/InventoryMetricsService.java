@@ -81,8 +81,9 @@ public class InventoryMetricsService {
             inventoryMetrics.setReorderPoint(0.0);
             inventoryMetrics.setAbcClass("A");
             inventoryMetrics.setAnnualDemand(0.0);
-            inventoryMetrics.setAvgDailyDemand(0.0);
+            inventoryMetrics.setAvgDailyDemand(0.0);    
             inventoryMetrics.setLastCalculatedAt(new Date());
+            inventoryMetrics.setStockKg(0.0);             
             inventoryMetricsRepository.save(inventoryMetrics);
         }
         return ResponseEntity.ok(null);
@@ -249,6 +250,12 @@ public class InventoryMetricsService {
         inventoryMetrics.setAnnualValue(inventoryMetrics.getAvgKgPrice() * inventoryMetrics.getAnnualDemand());
     }
 
+    private void calculateStockKg(InventoryMetrics inventoryMetrics){
+        List<Product> products = productRepository.findAllByAnalyticsKey(inventoryMetrics.getAnalyticsKey());
+        Double stockKg = products.stream().mapToDouble(Product::getWeight).sum();
+        inventoryMetrics.setStockKg(stockKg);
+    }
+
     private void calculateABCClassification() {
 
         List<InventoryMetrics> metrics =
@@ -292,6 +299,7 @@ public class InventoryMetricsService {
             calculateEOQ(inventoryMetric);
             calculateReorderPoint(inventoryMetric);
             calculateAnnualValue(inventoryMetric);
+            calculateStockKg(inventoryMetric);
             inventoryMetric.setLastCalculatedAt(new Date());
             inventoryMetricsRepository.save(inventoryMetric);
         }

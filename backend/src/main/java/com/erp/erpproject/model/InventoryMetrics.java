@@ -21,6 +21,7 @@ public class InventoryMetrics {
     private Double reorderPoint;
     private String abcClass;
 
+    private Double stockKg;
     private Double annualDemand;
     private Double avgDailyDemand;
     private Double avgKgPrice;

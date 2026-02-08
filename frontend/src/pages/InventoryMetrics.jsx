@@ -10,13 +10,27 @@ import {
   FiX,
   FiCheck,
   FiAlertCircle,
+  FiHelpCircle,
+  FiAlertTriangle,
 } from 'react-icons/fi';
 import Loading from '../components/Loading';
 
 const ABC_ORDER = { A: 1, B: 2, C: 3 };
 
+const NO_DATA_MSG = 'Yeterli satış verisi yok';
+
 const formatNumber = (num) => {
-  if (num == null) return '-';
+  if (num == null || Number.isNaN(num)) return '-';
+  return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(num);
+};
+
+/** Metrik değeri: geçersizse açıklayıcı mesaj göster. showNoDataMsg ile 0 da mesaj olarak gösterilir (talep yok) */
+const formatMetricValue = (num, showNoDataMsg = false) => {
+  const invalid = num == null || Number.isNaN(num) || (typeof num === 'number' && num < 0);
+  const noDemand = showNoDataMsg && (invalid || (typeof num === 'number' && num === 0));
+  if (invalid || noDemand) {
+    return showNoDataMsg ? NO_DATA_MSG : '-';
+  }
   return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(num);
 };
 
@@ -28,6 +42,32 @@ const formatDate = (dateStr) => {
     return dateStr;
   }
 };
+
+const ColHeader = ({ children, tooltip }) => (
+  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+    <span className="inline-flex items-center gap-1 justify-end">
+      {children}
+      {tooltip && (
+        <span title={tooltip} className="text-gray-400 cursor-help">
+          <FiHelpCircle size={14} />
+        </span>
+      )}
+    </span>
+  </th>
+);
+
+const ColHeaderLeft = ({ children, tooltip }) => (
+  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+    <span className="inline-flex items-center gap-1">
+      {children}
+      {tooltip && (
+        <span title={tooltip} className="text-gray-400 cursor-help">
+          <FiHelpCircle size={14} />
+        </span>
+      )}
+    </span>
+  </th>
+);
 
 const InventoryMetrics = () => {
   const [metrics, setMetrics] = useState([]);
@@ -192,8 +232,11 @@ const InventoryMetrics = () => {
       <div className="space-y-6">
         <div className="card">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Envanter Metrikleri</h1>
-          <p className="text-gray-600 mb-6">
-            EOQ, ROP ve ABC sınıflandırması burada yönetilir. Metrikler her gün saat 02:00&apos;de otomatik hesaplanır.
+          <p className="text-gray-600 mb-2">
+            Stok yönetimi için EOQ (ideal sipariş miktarı), ROP (sipariş verilme seviyesi) ve ABC öncelik sınıflandırması burada gösterilir.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Metrikler her gün saat 02:00&apos;de otomatik hesaplanır. Mevcut stok, ROP seviyesinin altına düştüğünde uyarı verilir.
           </p>
 
           {/* Aksiyonlar */}
@@ -236,7 +279,10 @@ const InventoryMetrics = () => {
 
           {/* Metrikler Tablosu */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Metrikler</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Metrikler</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Mevcut stok ROP altına düşen satırlarda uyarı görünür. EOQ değeri sipariş miktarını belirlemeniz için referanstır.
+            </p>
             {loadingMetrics ? (
               <Loading />
             ) : metrics.length === 0 ? (
@@ -249,50 +295,123 @@ const InventoryMetrics = () => {
                 <table className="min-w-full divide-y divide-gray-100">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Kategori</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Çap / İç Çap</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">ABC</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Yıllık Talep</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Günlük Talep</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">EOQ</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">ROP</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Yıllık Değer</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Son Hesaplama</th>
+                      <ColHeaderLeft>Ürün Kategorisi</ColHeaderLeft>
+                      <ColHeaderLeft tooltip="Ürün boyutu (mm cinsinden)">Çap / İç Çap (mm)</ColHeaderLeft>
+                      <ColHeader
+                        tooltip="Ürün öncelik sınıfı: A = En yüksek değerli (önce yönet), B = Orta, C = Düşük öncelikli"
+                      >
+                        ABC Sınıfı
+                      </ColHeader>
+                      <ColHeader tooltip="Yıllık tahmini satış miktarı (kg)">Yıllık Talep (kg)</ColHeader>
+                      <ColHeader tooltip="Ortalama günlük talep (kg)">Günlük Ort. Talep (kg)</ColHeader>
+                      <ColHeader
+                        tooltip="İdeal sipariş miktarı: Bu kadar kg sipariş vermek maliyet açısından en uygun"
+                      >
+                        EOQ (kg)
+                      </ColHeader>
+                      <ColHeader
+                        tooltip="Sipariş eşiği: Stok bu seviyeye düştüğünde sipariş verilmeli"
+                      >
+                        ROP (kg)
+                      </ColHeader>
+                      <ColHeader
+                        tooltip="Mevcut stok miktarı (kg). ROP altına düşerse sipariş gerekir"
+                      >
+                        Mevcut Stok (kg)
+                      </ColHeader>
+                      <ColHeader tooltip="Yıllık talep × birim fiyat">Yıllık Değer (₺)</ColHeader>
+                      <ColHeader>Son Hesaplama</ColHeader>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {sortedMetrics.map((m) => (
-                      <tr
-                        key={m.id}
-                        className="hover:bg-gradient-to-r hover:from-primary-50/30 hover:to-transparent transition-colors"
-                      >
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                          {getCategoryName(m.productCategoryId)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {formatNumber(m.diameter)} / {formatNumber(m.innerDiameter)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
-                              m.abcClass === 'A'
-                                ? 'bg-amber-100 text-amber-800'
-                                : m.abcClass === 'B'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            {m.abcClass}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">{formatNumber(m.annualDemand)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">{formatNumber(m.avgDailyDemand)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">{formatNumber(m.eoq)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">{formatNumber(m.reorderPoint)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-700">{formatNumber(m.annualValue)} ₺</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-500">{formatDate(m.lastCalculatedAt)}</td>
-                      </tr>
-                    ))}
+                    {sortedMetrics.map((m) => {
+                      const hasDemand = m.annualDemand != null && !Number.isNaN(m.annualDemand) && m.annualDemand > 0;
+                      const isBelowROP =
+                        m.reorderPoint != null &&
+                        m.stockKg != null &&
+                        !Number.isNaN(m.reorderPoint) &&
+                        !Number.isNaN(m.stockKg) &&
+                        m.stockKg < m.reorderPoint;
+                      return (
+                        <tr
+                          key={m.id}
+                          className={`hover:bg-gradient-to-r hover:from-primary-50/30 hover:to-transparent transition-colors ${
+                            isBelowROP ? 'bg-amber-50/50' : ''
+                          }`}
+                        >
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {getCategoryName(m.productCategoryId)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {formatNumber(m.diameter)} / {formatNumber(m.innerDiameter)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
+                                m.abcClass === 'A'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : m.abcClass === 'B'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}
+                              title={
+                                m.abcClass === 'A'
+                                  ? 'Kritik ürün – en yüksek öncelik'
+                                  : m.abcClass === 'B'
+                                  ? 'Orta öncelikli ürün'
+                                  : 'Düşük öncelikli ürün'
+                              }
+                            >
+                              {m.abcClass || '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-700">
+                            {formatMetricValue(m.annualDemand, true)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-700">
+                            {formatMetricValue(m.avgDailyDemand, true)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span
+                              className={`font-semibold ${hasDemand ? 'text-gray-900' : 'text-gray-400'}`}
+                              title="İdeal sipariş miktarı"
+                            >
+                              {formatMetricValue(m.eoq, true)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span
+                              className={`font-semibold ${hasDemand ? 'text-gray-900' : 'text-gray-400'}`}
+                              title="Bu seviyede sipariş verin"
+                            >
+                              {formatMetricValue(m.reorderPoint, true)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="inline-flex items-center gap-1.5">
+                              {isBelowROP && (
+                                <span
+                                  title={`Stok (${formatNumber(m.stockKg)} kg) ROP seviyesinin (${formatNumber(m.reorderPoint)} kg) altında – sipariş gerekli`}
+                                  className="text-amber-600"
+                                >
+                                  <FiAlertTriangle size={18} />
+                                </span>
+                              )}
+                              <span className={isBelowROP ? 'font-semibold text-amber-700' : 'text-gray-700'}>
+                                {formatNumber(m.stockKg)}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-700">
+                            {formatMetricValue(m.annualValue)}
+                            {m.annualValue != null && !Number.isNaN(m.annualValue) && ' ₺'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-500">
+                            {formatDate(m.lastCalculatedAt)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -319,6 +438,9 @@ const InventoryMetrics = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Varsayılan Sipariş Maliyeti (₺)
                 </label>
+                <p className="text-xs text-gray-500 mb-1">
+                  Her siparişte oluşan sabit maliyet (ulaşım, işçilik vb.)
+                </p>
                 <input
                   type="number"
                   step="0.01"
@@ -340,6 +462,9 @@ const InventoryMetrics = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tutma Oranı (0-1, örn: 0.2 = %20)
                 </label>
+                <p className="text-xs text-gray-500 mb-1">
+                  Stokta tutmanın yıllık maliyet oranı (depolama, sermaye maliyeti)
+                </p>
                 <input
                   type="number"
                   step="0.01"
@@ -362,6 +487,9 @@ const InventoryMetrics = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Teslimat Süresi (gün)
                 </label>
+                <p className="text-xs text-gray-500 mb-1">
+                  Siparişten teslimata kadar geçen süre – ROP hesaplamasında kullanılır
+                </p>
                 <input
                   type="number"
                   step="1"

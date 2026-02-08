@@ -13,6 +13,7 @@ com\erp\erpproject\repository\BranchesRepository.class
 com\erp\erpproject\controller\NotificationsController.class
 com\erp\erpproject\model\Product.class
 com\erp\erpproject\dto\LoginRequestDto.class
+com\erp\erpproject\scheduler\InventoryMetricsScheduler.class
 com\erp\erpproject\dto\DateRangeDto.class
 com\erp\erpproject\repository\ProductRepository.class
 com\erp\erpproject\controller\BranchController.class
@@ -30,7 +31,9 @@ com\erp\erpproject\model\Notifications.class
 com\erp\erpproject\service\AuthService.class
 com\erp\erpproject\service\JwtService.class
 com\erp\erpproject\dto\PurchasedProductStatisticsDto.class
+com\erp\erpproject\service\InventoryConfigService.class
 com\erp\erpproject\service\NotificationsService.class
+com\erp\erpproject\controller\InventoryConfigController.class
 com\erp\erpproject\model\Accounts$AccountType.class
 com\erp\erpproject\dto\CuttingInfoDto.class
 com\erp\erpproject\repository\AccountsRepository.class
