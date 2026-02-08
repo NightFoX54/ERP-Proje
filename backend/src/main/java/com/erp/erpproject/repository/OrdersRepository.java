@@ -13,5 +13,7 @@ import com.erp.erpproject.model.Orders.OrderStatus;
 public interface OrdersRepository extends MongoRepository<Orders, String> {
     List<Orders> findAllByOrderByOrderGivenDateDesc();
     List<Orders> findAllByOrderStatus(OrderStatus orderStatus);
+    List<Orders> findAllByOrderStatusIn(List<OrderStatus> orderStatuses);
+    List<Orders> findAllByOrderStatusInAndOrderGivenDateAfter(List<OrderStatus> orderStatuses, Date startDate);
     List<Orders> findAllByOrderGivenDateBetweenOrderByOrderGivenDateDesc(Date startDate, Date endDate);
 }

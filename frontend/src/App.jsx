@@ -14,6 +14,7 @@ import Orders from './pages/Orders';
 import CreateOrder from './pages/CreateOrder';
 import OrderDetail from './pages/OrderDetail';
 import Statistics from './pages/Statistics';
+import InventoryMetrics from './pages/InventoryMetrics';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const AppRoutes = () => {
@@ -43,6 +44,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute requireAdmin={true}>
             <AdminPanel />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory-metrics"
+        element={
+          <ProtectedRoute requireAdmin={true}>
+            <InventoryMetrics />
           </ProtectedRoute>
         }
       />

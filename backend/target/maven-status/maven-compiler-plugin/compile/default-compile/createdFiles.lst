@@ -5,8 +5,10 @@ com\erp\erpproject\controller\AuthController.class
 com\erp\erpproject\repository\ProductTypeRepository.class
 com\erp\erpproject\service\StockService.class
 com\erp\erpproject\model\Branches.class
+com\erp\erpproject\service\InventoryMetricsService$DemandAggregationData.class
 com\erp\erpproject\model\Orders.class
 com\erp\erpproject\controller\StatisticsController.class
+com\erp\erpproject\repository\InventoryConfigRepository.class
 com\erp\erpproject\repository\BranchesRepository.class
 com\erp\erpproject\controller\NotificationsController.class
 com\erp\erpproject\model\Product.class
@@ -14,6 +16,7 @@ com\erp\erpproject\dto\LoginRequestDto.class
 com\erp\erpproject\dto\DateRangeDto.class
 com\erp\erpproject\repository\ProductRepository.class
 com\erp\erpproject\controller\BranchController.class
+com\erp\erpproject\model\InventoryConfig.class
 com\erp\erpproject\controller\StockController.class
 com\erp\erpproject\repository\OrdersRepository.class
 com\erp\erpproject\util\SecurityUtil.class
@@ -38,12 +41,16 @@ com\erp\erpproject\security\UserPrincipal.class
 com\erp\erpproject\service\OrderService.class
 com\erp\erpproject\dto\LoginRegisterResponseDto.class
 com\erp\erpproject\dto\RegiterRequestDto.class
+com\erp\erpproject\model\InventoryMetrics.class
 com\erp\erpproject\dto\MainPageStatisticsDto.class
 com\erp\erpproject\model\ProductType.class
 com\erp\erpproject\dto\OrderCuttingDto.class
 com\erp\erpproject\dto\StatisticsPurchaseTotalDTO.class
+com\erp\erpproject\repository\InventoryMetricsRepository.class
 com\erp\erpproject\service\BranchService.class
+com\erp\erpproject\service\InventoryMetricsService.class
 com\erp\erpproject\config\SecurityConfig.class
 com\erp\erpproject\model\Orders$OrderStatus.class
+com\erp\erpproject\controller\InventoryMetricsController.class
 com\erp\erpproject\dto\ProductCategoryDto.class
 com\erp\erpproject\dto\StatisticsSoldProductsDto.class

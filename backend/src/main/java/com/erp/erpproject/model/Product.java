@@ -25,4 +25,5 @@ public class Product {
     private Double purchaseLength;
     private Double purchaseWeight;
     private Integer purchaseStock;
+    private String analyticsKey;
 }

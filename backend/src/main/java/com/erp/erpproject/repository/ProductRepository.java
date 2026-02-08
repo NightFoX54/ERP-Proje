@@ -18,4 +18,5 @@ public interface ProductRepository extends MongoRepository<Product, String> {
     List<Product> findAllByProductCategoryIdAndDiameter(String productCategoryId, Double diameter);
     List<Product> findAllByCreatedAtBetween(Date startDate, Date endDate);
     List<Product> findAllByCreatedAtBetweenOrderByCreatedAtDesc(Date startDate, Date endDate);
+    List<Product> findAllByCreatedAtAfter(Date date);
 }

@@ -48,6 +48,11 @@ public class StockService {
         product.setPurchaseLength(product.getLength());
         product.setPurchaseWeight(product.getWeight());
         product.setPurchaseStock(product.getStock());
+        String innerDiameter = null;
+        if(product.getFields().containsKey("iç çap")){
+            innerDiameter = product.getFields().get("iç çap").toString();
+        }
+        product.setAnalyticsKey(product.getProductCategoryId() + "-" + product.getDiameter().toString() + "-" + innerDiameter);
         return ResponseEntity.ok().body(productRepository.save(product));
     }
     public ResponseEntity<Product> updateProduct(String id, Product product) {
