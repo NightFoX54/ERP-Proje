@@ -6,6 +6,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -290,8 +292,24 @@ public class InventoryMetricsService {
         }
     }
 
+    private void clearUnnecessaryInventoryMetrics() {
+        List<InventoryMetrics> inventoryMetrics = inventoryMetricsRepository.findAll();
+        List<Product> products = productRepository.findAll();
+        // Aynı analyticsKey birden fazla üründe olabildiği için Set kullanıyoruz (sadece "bu key var mı?" kontrolü).
+        Set<String> existingAnalyticsKeys = products.stream()
+                .map(Product::getAnalyticsKey)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        for (InventoryMetrics inventoryMetric : inventoryMetrics) {
+            if (!existingAnalyticsKeys.contains(inventoryMetric.getAnalyticsKey())) {
+                inventoryMetricsRepository.delete(inventoryMetric);
+            }
+        }
+    }
+
     public ResponseEntity<Void> calculateAllInventoryMetrics() {
         initializeInventoryMetrics();
+        clearUnnecessaryInventoryMetrics();
         calculateDemandAggregation();
         setAvgKgPriceToInventoryMetrics();
         List<InventoryMetrics> inventoryMetrics = inventoryMetricsRepository.findAll();
