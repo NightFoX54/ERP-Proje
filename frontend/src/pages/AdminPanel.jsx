@@ -4,12 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { branchService } from '../services/branchService';
 import { toast } from 'react-toastify';
-import { FiPlus, FiTrash2, FiEdit2, FiUsers, FiMapPin, FiAlertCircle, FiX } from 'react-icons/fi';
+import { Link, useLocation } from 'react-router-dom';
+import { FiPlus, FiTrash2, FiEdit2, FiUsers, FiMapPin, FiAlertCircle, FiX, FiTrendingUp } from 'react-icons/fi';
 import Loading from '../components/Loading';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 const AdminPanel = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('branches'); // 'branches' or 'users'
   
   // Branches state
@@ -252,6 +254,17 @@ const AdminPanel = () => {
               <FiUsers className="inline mr-2" />
               Kullanıcı Yönetimi
             </button>
+            <Link
+              to="/inventory-metrics"
+              className={`px-6 py-3 font-medium transition-colors flex items-center ${
+                location.pathname === '/inventory-metrics'
+                  ? 'text-primary-700 border-b-2 border-primary-700'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FiTrendingUp className="inline mr-2" />
+              Envanter Metrikleri
+            </Link>
           </div>
 
           {/* Branches Tab */}

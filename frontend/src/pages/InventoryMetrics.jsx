@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { inventoryMetricsService, inventoryConfigService } from '../services/inventoryMetricsService';
 import { branchService } from '../services/branchService';
@@ -12,6 +12,7 @@ import {
   FiAlertCircle,
   FiHelpCircle,
   FiAlertTriangle,
+  FiChevronDown,
 } from 'react-icons/fi';
 import Loading from '../components/Loading';
 
@@ -43,15 +44,31 @@ const formatDate = (dateStr) => {
   }
 };
 
+const HeaderTooltip = ({ text }) => {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span
+      className="relative inline-flex text-gray-400 cursor-help"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+    >
+      <FiHelpCircle size={14} />
+      {visible && (
+        <span className="absolute left-1/2 top-full z-30 mt-1.5 -translate-x-1/2 w-max max-w-[280px] px-3 py-2 text-left text-xs font-normal normal-case text-gray-700 bg-white rounded-xl border border-gray-200 shadow-lg ring-1 ring-black/5 pointer-events-none">
+          <span className="absolute left-1/2 bottom-full -translate-x-1/2 border-[6px] border-transparent border-b-gray-200" style={{ marginBottom: '-1px' }} />
+          <span className="absolute left-1/2 bottom-full -translate-x-1/2 border-[5px] border-transparent border-b-white" style={{ marginBottom: '1px' }} />
+          {text}
+        </span>
+      )}
+    </span>
+  );
+};
+
 const ColHeader = ({ children, tooltip }) => (
   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
     <span className="inline-flex items-center gap-1 justify-end">
       {children}
-      {tooltip && (
-        <span title={tooltip} className="text-gray-400 cursor-help">
-          <FiHelpCircle size={14} />
-        </span>
-      )}
+      {tooltip && <HeaderTooltip text={tooltip} />}
     </span>
   </th>
 );
@@ -60,11 +77,7 @@ const ColHeaderLeft = ({ children, tooltip }) => (
   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
     <span className="inline-flex items-center gap-1">
       {children}
-      {tooltip && (
-        <span title={tooltip} className="text-gray-400 cursor-help">
-          <FiHelpCircle size={14} />
-        </span>
-      )}
+      {tooltip && <HeaderTooltip text={tooltip} />}
     </span>
   </th>
 );
@@ -84,6 +97,21 @@ const InventoryMetrics = () => {
   });
   const [configErrors, setConfigErrors] = useState({});
   const [savingConfig, setSavingConfig] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState('all');
+  const [branchCategoryIdsMap, setBranchCategoryIdsMap] = useState({});
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const branchDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (branchDropdownRef.current && !branchDropdownRef.current.contains(e.target)) {
+        setBranchDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchMetrics = async () => {
     try {
@@ -128,11 +156,15 @@ const InventoryMetrics = () => {
 
   const fetchCategories = async () => {
     try {
-      const branches = await branchService.getBranches();
+      const branchesData = await branchService.getBranches();
+      setBranches(branchesData || []);
       const map = {};
-      for (const branch of branches || []) {
+      const branchToCategories = {};
+      for (const branch of branchesData || []) {
         try {
           const categories = await stockService.getProductCategories(branch.id);
+          const categoryIds = (categories || []).filter((c) => c.id).map((c) => c.id);
+          branchToCategories[branch.id] = categoryIds;
           (categories || []).forEach((c) => {
             if (c.id && c.name && !map[c.id]) map[c.id] = c.name;
           });
@@ -141,6 +173,7 @@ const InventoryMetrics = () => {
         }
       }
       setCategoryMap(map);
+      setBranchCategoryIdsMap(branchToCategories);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -206,7 +239,14 @@ const InventoryMetrics = () => {
   const getCategoryName = (productCategoryId) =>
     categoryMap[productCategoryId] || productCategoryId || '-';
 
-  const sortedMetrics = [...metrics].sort((a, b) => {
+  const filteredMetrics =
+    selectedBranchId === 'all' || !selectedBranchId
+      ? metrics
+      : metrics.filter((m) =>
+          (branchCategoryIdsMap[selectedBranchId] || []).includes(m.productCategoryId)
+        );
+
+  const sortedMetrics = [...filteredMetrics].sort((a, b) => {
     const orderA = ABC_ORDER[a.abcClass] ?? 99;
     const orderB = ABC_ORDER[b.abcClass] ?? 99;
     if (orderA !== orderB) return orderA - orderB;
@@ -240,7 +280,7 @@ const InventoryMetrics = () => {
           </p>
 
           {/* Aksiyonlar */}
-          <div className="flex flex-wrap gap-4 mb-8">
+          <div className="flex flex-wrap items-center gap-4 mb-8">
             <button
               onClick={handleCalculateAll}
               disabled={calculateLoading}
@@ -257,6 +297,62 @@ const InventoryMetrics = () => {
               <FiSettings />
               Envanter Ayarları
             </button>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                Şube:
+              </label>
+              <div className="relative min-w-[200px]" ref={branchDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setBranchDropdownOpen((v) => !v)}
+                  className="w-full flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm transition-all hover:border-primary-300 hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                >
+                  <span>
+                    {selectedBranchId === 'all' || !selectedBranchId
+                      ? 'Tümü'
+                      : branches.find((b) => b.id === selectedBranchId)?.name || selectedBranchId}
+                  </span>
+                  <FiChevronDown
+                    className={`h-4 w-4 text-gray-500 shrink-0 transition-transform ${branchDropdownOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {branchDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 rounded-xl border border-gray-200 bg-white py-1.5 px-1.5 shadow-lg ring-1 ring-black/5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBranchId('all');
+                        setBranchDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors rounded-lg ${
+                        selectedBranchId === 'all' || !selectedBranchId
+                          ? 'bg-primary-600 text-white'
+                          : 'text-gray-700 hover:bg-primary-50'
+                      }`}
+                    >
+                      Tümü
+                    </button>
+                    {branches.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBranchId(b.id);
+                          setBranchDropdownOpen(false);
+                        }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors rounded-lg ${
+                          selectedBranchId === b.id
+                            ? 'bg-primary-600 text-white'
+                            : 'text-gray-700 hover:bg-primary-50'
+                        }`}
+                      >
+                        {b.name || b.id}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Config Özeti */}
@@ -289,6 +385,10 @@ const InventoryMetrics = () => {
               <p className="text-gray-500 py-8 text-center">
                 Henüz envanter metrikleri oluşturulmamış. Önce &quot;Tüm Metrikleri Hesapla&quot; butonuna tıklayın veya ürün
                 kategorileri ekleyin.
+              </p>
+            ) : filteredMetrics.length === 0 ? (
+              <p className="text-gray-500 py-8 text-center">
+                Seçilen şube için envanter metrikleri bulunamadı. Başka bir şube seçin veya &quot;Tümü&quot; ile tüm verileri görüntüleyin.
               </p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
