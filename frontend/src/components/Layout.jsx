@@ -12,7 +12,8 @@ import {
   FiX,
   FiBell,
   FiBarChart2,
-  FiCheck
+  FiCheck,
+  FiTrendingUp
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 
@@ -106,6 +107,7 @@ const Layout = ({ children }) => {
 
   if (isAdmin()) {
     menuItems.push({ path: '/admin', icon: FiSettings, label: 'Admin Panel' });
+    menuItems.push({ path: '/inventory-metrics', icon: FiTrendingUp, label: 'Envanter Metrikleri' });
   }
 
   return (
