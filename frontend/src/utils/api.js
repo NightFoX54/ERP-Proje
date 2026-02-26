@@ -15,7 +15,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 120000, // 120 saniye timeout
+  timeout: 1200000, // 1200 saniye timeout yani 20 dakika
 });
 
 // Request interceptor - JWT token ekleme ve expiration kontrolü
