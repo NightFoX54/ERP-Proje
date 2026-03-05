@@ -4,13 +4,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +30,6 @@ import com.erp.erpproject.security.UserPrincipal;
 
 @Service
 public class StatisticsService {
-    private static final Logger logger = LoggerFactory.getLogger(StatisticsService.class);
     private final ProductRepository productRepository;
     private final ProductCategoriesRepository productCategoriesRepository;
     private final ProductTypeRepository productTypeRepository;
@@ -47,31 +45,39 @@ public class StatisticsService {
 
     public Map<String,Map<String, List<PurchasedProductStatisticsDto>>> getPurchasedProductsBetweenDates(Date startDate, Date endDate, UserPrincipal userPrincipal) {
         List<Product> products = productRepository.findAllByCreatedAtBetweenOrderByCreatedAtDesc(startDate, endDate);
-        
-        // Eğer kullanıcı BRANCH ise, sadece kendi branch'ine ait kategori ID'lerine sahip ürünleri filtrele
+
         if (userPrincipal != null && userPrincipal.isBranchUser()) {
             String branchId = userPrincipal.getBranchId();
             List<ProductCategories> branchCategories = productCategoriesRepository.findAllByBranchId(branchId);
             List<String> allowedCategoryIds = branchCategories.stream()
                     .map(ProductCategories::getId)
                     .collect(Collectors.toList());
-            
+
             products = products.stream()
-                    .filter(product -> product.getProductCategoryId() != null && 
+                    .filter(product -> product.getProductCategoryId() != null &&
                                      allowedCategoryIds.contains(product.getProductCategoryId()))
                     .collect(Collectors.toList());
         }
-        // ADMIN ise tüm ürünleri göster (filtreleme yapılmıyor)
-        
+
+        Set<String> categoryIds = products.stream()
+                .map(Product::getProductCategoryId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        Map<String, ProductCategories> categoryMap = categoryIds.isEmpty()
+                ? new HashMap<>()
+                : productCategoriesRepository.findAllById(categoryIds).stream()
+                        .collect(Collectors.toMap(ProductCategories::getId, pc -> pc));
+
         Map<String,Map<String, List<PurchasedProductStatisticsDto>>> result = new HashMap<>();
         for (Product product : products) {
-            ProductCategories productCategory = productCategoriesRepository.findById(product.getProductCategoryId()).orElse(null);
-            if(productCategory != null) {
-                if(!result.containsKey(productCategory.getBranchId())) {
-                    result.put(productCategory.getBranchId(), new HashMap<>());
-                }
+            ProductCategories productCategory = categoryMap.get(product.getProductCategoryId());
+            if (productCategory == null) {
+                continue;
             }
-            if(result.get(productCategory.getBranchId()).containsKey(product.getProductCategoryId())) {
+            if (!result.containsKey(productCategory.getBranchId())) {
+                result.put(productCategory.getBranchId(), new HashMap<>());
+            }
+            if (result.get(productCategory.getBranchId()).containsKey(product.getProductCategoryId())) {
                 List<PurchasedProductStatisticsDto> purchasedProductStatisticsDtos = result.get(productCategory.getBranchId()).get(product.getProductCategoryId());
 
                 PurchasedProductStatisticsDto purchasedProductStatisticsDto = new PurchasedProductStatisticsDto();
@@ -167,28 +173,38 @@ public class StatisticsService {
                     .filter(order -> order.getOrderDeliveryBranchId().equals(branchId))
                     .collect(Collectors.toList());
         }
-        logger.info("Orders: " + orders.size());
+        Set<String> productIds = new HashSet<>();
+        for (Orders order : orders) {
+            if (order.getSoldItems() != null) {
+                for (Map<String, Object> soldItem : order.getSoldItems()) {
+                    Object pid = soldItem.get("productId");
+                    if (pid != null) {
+                        productIds.add(pid.toString());
+                    }
+                }
+            }
+        }
+        Map<String, Product> productMap = productIds.isEmpty()
+                ? new HashMap<>()
+                : productRepository.findAllById(productIds).stream()
+                        .collect(Collectors.toMap(Product::getId, p -> p));
+
         Map<String,Map<String,Map<String,List<StatisticsSoldProductsDto>>>> result = new HashMap<>();
         for (Orders order : orders) {
-            logger.info("Customer Name: " + order.getCustomerName());
-            if(order.getSoldItems() == null) {
+            if (order.getSoldItems() == null) {
                 continue;
             }
-            if(!result.containsKey(order.getOrderDeliveryBranchId())) {
+            if (!result.containsKey(order.getOrderDeliveryBranchId())) {
                 result.put(order.getOrderDeliveryBranchId(), new HashMap<>());
             }
-            
-            logger.info("Order Delivery Branch ID: " + order.getOrderDeliveryBranchId());
-            if(!result.get(order.getOrderDeliveryBranchId()).containsKey(order.getCustomerName())) {
+            if (!result.get(order.getOrderDeliveryBranchId()).containsKey(order.getCustomerName())) {
                 result.get(order.getOrderDeliveryBranchId()).put(order.getCustomerName(), new HashMap<>());
             }
-           
+
             for (Map<String, Object> soldItem : order.getSoldItems()) {
-                logger.info("Sold Item: " + soldItem);
-                Product product = productRepository.findById( (String) soldItem.get("productId")).orElse(null);
-                if(product != null) {
-                    logger.info("Product: " + product.getId());
-                    if(!result.get(order.getOrderDeliveryBranchId()).get(order.getCustomerName()).containsKey(product.getProductCategoryId())) {
+                Product product = productMap.get(soldItem.get("productId") != null ? soldItem.get("productId").toString() : null);
+                if (product != null) {
+                    if (!result.get(order.getOrderDeliveryBranchId()).get(order.getCustomerName()).containsKey(product.getProductCategoryId())) {
                         result.get(order.getOrderDeliveryBranchId()).get(order.getCustomerName()).put(product.getProductCategoryId(), new ArrayList<>());
                     }
                     List<StatisticsSoldProductsDto> statisticsSoldProductsDtos = result.get(order.getOrderDeliveryBranchId()).get(order.getCustomerName()).get(product.getProductCategoryId());
@@ -196,11 +212,10 @@ public class StatisticsService {
                     statisticsSoldProductsDto.setProduct(product);
                     statisticsSoldProductsDto.setWastageWeight((Double) soldItem.get("wastageWeight"));
                     statisticsSoldProductsDto.setWastageLength((Double) soldItem.get("wastageLength"));
-                    if(soldItem.containsKey("cutLength")) {
+                    if (soldItem.containsKey("cutLength")) {
                         statisticsSoldProductsDto.setCutLength((Double) soldItem.get("cutLength"));
                         statisticsSoldProductsDto.setCutQuantity((Integer) soldItem.get("cutQuantity"));
-                    }
-                    else{
+                    } else {
                         statisticsSoldProductsDto.setCutLength(0.0);
                         statisticsSoldProductsDto.setCutQuantity((Integer) soldItem.get("quantity"));
                     }
@@ -239,38 +254,27 @@ public class StatisticsService {
     }
 
     public ResponseEntity<MainPageStatisticsDto> getMainPageStatistics(UserPrincipal userPrincipal) {
-        List<Orders> orders = ordersRepository.findAll();
-        List<Product> products = productRepository.findAll();
-        List<ProductCategories> productCategories = productCategoriesRepository.findAll();
-        Integer totalProducts = 0;
-        Integer totalOrders = 0;
-        Integer totalWaitingOrders = 0;
-        if(userPrincipal != null && userPrincipal.isBranchUser()) {
+        int totalProducts;
+        int totalOrders;
+        int totalWaitingOrders;
+        if (userPrincipal != null && userPrincipal.isBranchUser()) {
             String branchId = userPrincipal.getBranchId();
-            productCategories = productCategoriesRepository.findAllByBranchId(branchId);
-            Set<String> branchCategoryIds = productCategories.stream()
+            List<ProductCategories> productCategories = productCategoriesRepository.findAllByBranchId(branchId);
+            List<String> branchCategoryIds = productCategories.stream()
                     .map(ProductCategories::getId)
-                    .collect(Collectors.toSet());
-            totalProducts = (int) products.stream()
-                    .filter(product -> product.getProductCategoryId() != null && 
-                                     branchCategoryIds.contains(product.getProductCategoryId()))
-                    .count();
-            totalOrders = orders.stream()
-                    .filter(order -> order.getOrderDeliveryBranchId().equals(branchId))
-                    .collect(Collectors.toList()).size();
-            totalWaitingOrders = orders.stream()
-                    .filter(order -> order.getOrderDeliveryBranchId().equals(branchId))
-                    .filter(order -> !order.getOrderStatus().equals(Orders.OrderStatus.Çıktı))
-                    .collect(Collectors.toList()).size();
+                    .collect(Collectors.toList());
+            totalProducts = branchCategoryIds.isEmpty() ? 0 : (int) productRepository.countByProductCategoryIdIn(branchCategoryIds);
+            totalOrders = (int) ordersRepository.countByOrderDeliveryBranchId(branchId);
+            totalWaitingOrders = (int) ordersRepository.countByOrderDeliveryBranchIdAndOrderStatusNot(branchId, Orders.OrderStatus.Çıktı);
+        } else if (userPrincipal != null && userPrincipal.isAdmin()) {
+            totalProducts = (int) productRepository.count();
+            totalOrders = (int) ordersRepository.count();
+            totalWaitingOrders = (int) ordersRepository.countByOrderStatusNot(Orders.OrderStatus.Çıktı);
+        } else {
+            totalProducts = 0;
+            totalOrders = 0;
+            totalWaitingOrders = 0;
         }
-        else if(userPrincipal != null && userPrincipal.isAdmin()) {
-            totalProducts = products.size();
-            totalOrders = orders.size();
-            totalWaitingOrders = orders.stream()
-                    .filter(order -> !order.getOrderStatus().equals(Orders.OrderStatus.Çıktı))
-                    .collect(Collectors.toList()).size();
-        }
-
         return ResponseEntity.ok(new MainPageStatisticsDto(totalProducts, totalOrders, totalWaitingOrders));
     }
 }

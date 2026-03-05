@@ -96,33 +96,28 @@ const Statistics = () => {
   const fetchStatistics = async () => {
     try {
       setLoading(true);
-      
+
       const start = new Date(startDate);
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
 
-      // Toplam istatistikleri çek
-      try {
-        const purchasedTotalData = await statisticsService.getPurchasedProductsTotal(start, end);
-        setPurchasedTotal(purchasedTotalData);
-      } catch (error) {
-        if (error.response?.status !== 403) {
-          console.error('Error fetching purchased total:', error);
-        }
-      }
+      // Tüm istatistik isteklerini paralel çalıştır (sıralı beklemeyi kaldırır)
+      const [purchasedTotalData, soldTotalData, purchasedData, soldData] = await Promise.all([
+        isAdmin() ? statisticsService.getPurchasedProductsTotal(start, end).catch(err => {
+          if (err.response?.status !== 403) console.error('Error fetching purchased total:', err);
+          return null;
+        }) : Promise.resolve(null),
+        statisticsService.getSoldProductsTotal(start, end),
+        statisticsService.getPurchasedProductsBetweenDates(start, end).catch(err => {
+          console.error('Error fetching purchased products:', err);
+          return null;
+        }),
+        statisticsService.getSoldProductsBetweenDates(start, end),
+      ]);
 
-      const soldTotalData = await statisticsService.getSoldProductsTotal(start, end);
+      setPurchasedTotal(purchasedTotalData ?? null);
       setSoldTotal(soldTotalData);
-
-      // Detaylı istatistikleri çek
-      try {
-        const purchasedData = await statisticsService.getPurchasedProductsBetweenDates(start, end);
-        setPurchasedProducts(purchasedData);
-      } catch (error) {
-        console.error('Error fetching purchased products:', error);
-      }
-
-      const soldData = await statisticsService.getSoldProductsBetweenDates(start, end);
+      setPurchasedProducts(purchasedData ?? null);
       setSoldProducts(soldData);
 
       setLoading(false);
@@ -400,12 +395,12 @@ const Statistics = () => {
                       const isBranchExpanded = expandedBranches[branchId];
                       const categoryCount = Object.keys(categories).length;
                       
-                      // Şube toplamlarını hesapla
+                      // Şube toplamlarını hesapla (ağırlık zaten toplam kg, miktar ile çarpılmaz)
                       let branchTotalWeight = 0;
                       let branchTotalPrice = 0;
                       Object.values(categories).forEach(products => {
                         products.forEach(product => {
-                          if (product.purchaseWeight) branchTotalWeight += product.purchaseWeight * (product.totalQuantity || 0);
+                          if (product.purchaseWeight != null) branchTotalWeight += Number(product.purchaseWeight);
                           if (product.purchaseTotalPrice) branchTotalPrice += product.purchaseTotalPrice;
                         });
                       });
@@ -463,11 +458,11 @@ const Statistics = () => {
                                 const categoryKey = `${branchId}-${categoryId}`;
                                 const isCategoryExpanded = expandedCategories[categoryKey];
                                 
-                                // Kategori toplamlarını hesapla
+                                // Kategori toplamlarını hesapla (ağırlık zaten toplam kg, miktar ile çarpılmaz)
                                 let categoryTotalWeight = 0;
                                 let categoryTotalPrice = 0;
                                 products.forEach(product => {
-                                  if (product.purchaseWeight) categoryTotalWeight += product.purchaseWeight * (product.totalQuantity || 0);
+                                  if (product.purchaseWeight != null) categoryTotalWeight += Number(product.purchaseWeight);
                                   if (product.purchaseTotalPrice) categoryTotalPrice += product.purchaseTotalPrice;
                                 });
                                 const categoryKgPrice = categoryTotalWeight > 0 ? categoryTotalPrice / categoryTotalWeight : 0;
@@ -598,9 +593,10 @@ const Statistics = () => {
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-100">
                                               {products.map((product, index) => {
-                                                const kgPrice = product.purchaseKgPrice || 
-                                                  (product.purchaseWeight && product.totalQuantity && product.purchaseTotalPrice 
-                                                    ? product.purchaseTotalPrice / (product.purchaseWeight * product.totalQuantity) 
+                                                // Kg fiyat: purchaseWeight zaten toplam kg (adet ile çarpılmaz)
+                                                const kgPrice = product.purchaseKgPrice ??
+                                                  (product.purchaseWeight && product.purchaseTotalPrice && Number(product.purchaseWeight) !== 0
+                                                    ? product.purchaseTotalPrice / Number(product.purchaseWeight)
                                                     : 0);
                                                 
                                                 // Tüm field key'lerini topla
