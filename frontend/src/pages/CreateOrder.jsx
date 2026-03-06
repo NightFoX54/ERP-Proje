@@ -146,7 +146,7 @@ const CreateOrder = () => {
     return productType?.name || null;
   };
 
-  // Ürünleri çap ve iç çapa göre sıralama fonksiyonu
+  // Ürünleri çap ve et kalınlığına göre sıralama fonksiyonu
   const sortProductsByDiameter = (products) => {
     return [...products].sort((a, b) => {
       // Önce çapa göre sırala
@@ -157,7 +157,7 @@ const CreateOrder = () => {
         return diameterA - diameterB;
       }
       
-      // Çaplar eşitse iç çapa göre sırala
+      // Çaplar eşitse et kalınlığına göre sırala
       const getInnerDiameter = (product) => {
         if (!product.fields || typeof product.fields !== 'object') return 0;
         
@@ -300,7 +300,7 @@ const CreateOrder = () => {
         parts.push(`Çap: ${product.diameter}mm`);
       }
       if (innerDiameter !== null) {
-        parts.push(`İç Çap: ${innerDiameter}mm`);
+        parts.push(`Et Kalınlığı: ${innerDiameter}mm`);
       }
       if (product.length) {
         parts.push(`Uzunluk: ${product.length}mm`);
@@ -449,7 +449,7 @@ const CreateOrder = () => {
         parts.push(`Çap: ${orderItem.diameter}mm`);
       }
       if (innerDiameter !== null) {
-        parts.push(`İç Çap: ${innerDiameter}mm`);
+        parts.push(`Et Kalınlığı: ${innerDiameter}mm`);
       }
       if (orderItem.length) {
         parts.push(`Uzunluk: ${orderItem.length}mm`);
@@ -748,7 +748,7 @@ const CreateOrder = () => {
                                                   normalizedKey === 'icap' ||
                                                   normalizedKey === 'innerdiam';
                           
-                          // Eğer iç çap ise ve değer sayısal ise mm ekle
+                          // Eğer et kalınlığı ise ve değer sayısal ise mm ekle
                           if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
                             return `${value}mm`;
                           }
@@ -780,7 +780,7 @@ const CreateOrder = () => {
                             parts.push(`Çap: ${product.diameter}mm`);
                           }
                           if (innerDiameter !== null) {
-                            parts.push(`İç Çap: ${innerDiameter}mm`);
+                            parts.push(`Et Kalınlığı: ${innerDiameter}mm`);
                           }
                           if (product.length) {
                             parts.push(`Uzunluk: ${product.length}mm`);
@@ -789,7 +789,7 @@ const CreateOrder = () => {
                         };
                         
                         const extraFields = [];
-                        // product.fields içindeki alanları ekle (iç çap hariç, çünkü zaten başlıkta gösteriliyor)
+                        // product.fields içindeki alanları ekle (et kalınlığı hariç, çünkü zaten başlıkta gösteriliyor)
                         if (product.fields && typeof product.fields === 'object') {
                           Object.entries(product.fields).forEach(([key, value]) => {
                             if (value !== null && value !== undefined && value !== '') {
@@ -893,7 +893,7 @@ const CreateOrder = () => {
                                                         normalizedKey === 'icap' ||
                                                         normalizedKey === 'innerdiam';
                                 
-                                // Eğer iç çap ise ve değer sayısal ise mm ekle
+                                // Eğer et kalınlığı ise ve değer sayısal ise mm ekle
                                 if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
                                   return `${value}mm`;
                                 }

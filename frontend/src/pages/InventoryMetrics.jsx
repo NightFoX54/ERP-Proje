@@ -396,7 +396,7 @@ const InventoryMetrics = () => {
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
                     <tr>
                       <ColHeaderLeft>Ürün Kategorisi</ColHeaderLeft>
-                      <ColHeaderLeft tooltip="Ürün boyutu (mm cinsinden)">Çap / İç Çap (mm)</ColHeaderLeft>
+                      <ColHeaderLeft tooltip="Ürün boyutu (mm cinsinden)">Çap / Et Kalınlığı (mm)</ColHeaderLeft>
                       <ColHeader
                         tooltip="Ürün öncelik sınıfı: A = En yüksek değerli (önce yönet), B = Orta, C = Düşük öncelikli"
                       >

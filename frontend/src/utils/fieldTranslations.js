@@ -6,7 +6,9 @@ export const fieldTranslations = {
   diameter: 'Çap',
   length: 'Uzunluk',
   stock: 'Stok',
-  innerDiameter: 'İç Çap',
+  innerDiameter: 'Et Kalınlığı',
+  'iç çap': 'Et Kalınlığı',
+  'iççap': 'Et Kalınlığı',
 };
 
 // String'i title case formatına çevir (her kelimenin ilk harfi büyük, diğerleri küçük)

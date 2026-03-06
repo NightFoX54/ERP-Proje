@@ -675,7 +675,7 @@ const OrderDetail = () => {
                       // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight, kgPrice hariç)
                       const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight', 'kgPrice'];
                       const formatFieldValue = (key, value) => {
-                        // İç çap alanlarını tespit et
+                        // Et kalınlığı alanlarını tespit et
                         const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
                         const isInnerDiameter = normalizedKey.includes('iccap') || 
                                                 normalizedKey.includes('innerdiameter') ||
@@ -683,7 +683,7 @@ const OrderDetail = () => {
                                                 normalizedKey === 'icap' ||
                                                 normalizedKey === 'innerdiam';
                         
-                        // Eğer iç çap ise ve değer sayısal ise mm ekle
+                        // Eğer et kalınlığı ise ve değer sayısal ise mm ekle
                         if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
                           return `${value}mm`;
                         }
@@ -946,7 +946,7 @@ const OrderDetail = () => {
                               // Key'i daha okunabilir hale getir
                               const formattedKey = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
                               
-                              // İç çap alanlarını tespit et (iç çap, iççap, icCap, ic_cap, innerDiameter, inner_diameter vb.)
+                              // Et kalınlığı alanlarını tespit et (iç çap, iççap, icCap, ic_cap, innerDiameter, inner_diameter vb.)
                               const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
                               const isInnerDiameter = normalizedKey.includes('iccap') || 
                                                       normalizedKey.includes('innerdiameter') ||
@@ -954,7 +954,7 @@ const OrderDetail = () => {
                                                       normalizedKey === 'icap' ||
                                                       normalizedKey === 'innerdiam';
                               
-                              // Eğer iç çap ise ve değer sayısal ise mm ekle
+                              // Eğer et kalınlığı ise ve değer sayısal ise mm ekle
                               let formattedValue = value;
                               if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
                                 formattedValue = `${value}mm`;
@@ -974,7 +974,7 @@ const OrderDetail = () => {
                       // Tüm ekstra alanları formatla (diameter, length, weight, quantity, productCategoryId, wastageLength, wastageWeight, kgPrice hariç)
                       const excludedFields = ['diameter', 'length', 'weight', 'quantity', 'productCategoryId', 'wastageLength', 'wastageWeight', 'kgPrice'];
                       const formatFieldValue = (key, value) => {
-                        // İç çap alanlarını tespit et
+                        // Et kalınlığı alanlarını tespit et
                         const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
                         const isInnerDiameter = normalizedKey.includes('iccap') || 
                                                 normalizedKey.includes('innerdiameter') ||
@@ -982,7 +982,7 @@ const OrderDetail = () => {
                                                 normalizedKey === 'icap' ||
                                                 normalizedKey === 'innerdiam';
                         
-                        // Eğer iç çap ise ve değer sayısal ise mm ekle
+                        // Eğer et kalınlığı ise ve değer sayısal ise mm ekle
                         if (isInnerDiameter && !isNaN(value) && value !== null && value !== '') {
                           return `${value}mm`;
                         }

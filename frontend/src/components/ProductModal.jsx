@@ -537,7 +537,7 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               </>
             )}
 
-            {/* Extra Fields from Category - Sabit alanları ve iç çap hariç tut (iç çap zaten yukarıda gösterildi) */}
+            {/* Extra Fields from Category - Sabit alanları ve et kalınlığı hariç tut (et kalınlığı zaten yukarıda gösterildi) */}
             {category?.finalFields && Object.keys(filterFixedFields(category.finalFields)).length > 0 && 
               Object.entries(category.finalFields)
                 .filter(([key]) => {

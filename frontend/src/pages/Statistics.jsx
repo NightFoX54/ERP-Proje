@@ -564,7 +564,7 @@ const Statistics = () => {
                                                 <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                                   Toplam Fiyat
                                                 </th>
-                                                {/* Diğer Fields kolonları (iç çap hariç) */}
+                                                {/* Diğer Fields kolonları (et kalınlığı hariç) */}
                                                 {(() => {
                                                   const allFieldKeys = new Set();
                                                   products.forEach(product => {
@@ -676,7 +676,7 @@ const Statistics = () => {
                                                     <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                                                       {formatCurrency(product.purchaseTotalPrice)}
                                                     </td>
-                                                    {/* Diğer Fields değerlerini göster (iç çap hariç) */}
+                                                    {/* Diğer Fields değerlerini göster (et kalınlığı hariç) */}
                                                     {otherFieldKeys.map(fieldKey => {
                                                       const fieldValue = product.fields?.[fieldKey];
                                                       let displayValue = '-';
@@ -802,7 +802,7 @@ const Statistics = () => {
                                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                     fiyat
                                   </th>
-                                  {/* Diğer Fields kolonları (iç çap hariç) */}
+                                  {/* Diğer Fields kolonları (et kalınlığı hariç) */}
                                   {otherFieldKeys.map(fieldKey => (
                                     <th key={fieldKey} className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                                       {translateFieldName(fieldKey)}

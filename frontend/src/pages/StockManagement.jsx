@@ -104,7 +104,7 @@ const StockManagement = () => {
     }
   };
 
-  // Ürünleri çap ve iç çapa göre sıralama fonksiyonu
+  // Ürünleri çap ve et kalınlığına göre sıralama fonksiyonu
   const sortProductsByDiameter = (products) => {
     return [...products].sort((a, b) => {
       // Önce çapa göre sırala
@@ -115,7 +115,7 @@ const StockManagement = () => {
         return diameterA - diameterB;
       }
       
-      // Çaplar eşitse iç çapa göre sırala
+      // Çaplar eşitse et kalınlığına göre sırala
       const getInnerDiameter = (product) => {
         if (!product.fields || typeof product.fields !== 'object') return 0;
         
@@ -449,7 +449,7 @@ const StockManagement = () => {
                               </th>
                             </>
                           )}
-                              {/* Diğer ekstra alanlar için dinamik kolonlar (iç çap hariç) */}
+                              {/* Diğer ekstra alanlar için dinamik kolonlar (et kalınlığı hariç) */}
                               {otherFieldKeys.map((fieldKey) => (
                                 <th
                                   key={fieldKey}
@@ -550,7 +550,7 @@ const StockManagement = () => {
                                     </td>
                                   </>
                                 )}
-                                {/* Diğer ekstra alanların değerlerini göster (iç çap hariç) */}
+                                {/* Diğer ekstra alanların değerlerini göster (et kalınlığı hariç) */}
                                 {otherFieldKeys.map((fieldKey) => {
                                   const productFieldValue = product.fields?.[fieldKey];
                                   const fieldData = extraFields[fieldKey];
