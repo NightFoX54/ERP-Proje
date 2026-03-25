@@ -60,6 +60,16 @@ public class InventoryMetricsService {
             inventoryConfig = inventoryConfigs.get(0);
         }
         List<Product> products = productRepository.findAll();
+
+        // N+1 önleme: mevcut tüm analyticsKey'leri tek sorguda çek
+        Set<String> existingMetricsKeys = inventoryMetricsRepository.findAll().stream()
+            .map(InventoryMetrics::getAnalyticsKey)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        List<Product> productsToSave = new java.util.ArrayList<>();
+        List<InventoryMetrics> metricsToSave = new java.util.ArrayList<>();
+
         for(Product product : products){
             if(product.getAnalyticsKey() == null){
                 String innerDiameter = null;
@@ -67,11 +77,12 @@ public class InventoryMetricsService {
                     innerDiameter = product.getFields().get("iç çap").toString();
                 }
                 product.setAnalyticsKey(product.getProductCategoryId() + "-" + product.getDiameter().toString() + "-" + innerDiameter);
-                productRepository.save(product);
+                productsToSave.add(product);
             }
-            if(inventoryMetricsRepository.findByAnalyticsKey(product.getAnalyticsKey()) != null){
+            if(existingMetricsKeys.contains(product.getAnalyticsKey())){
                 continue;
             }
+            existingMetricsKeys.add(product.getAnalyticsKey());
             InventoryMetrics inventoryMetrics = new InventoryMetrics();
             inventoryMetrics.setAnalyticsKey(product.getAnalyticsKey());
             inventoryMetrics.setProductCategoryId(product.getProductCategoryId());
@@ -85,9 +96,12 @@ public class InventoryMetricsService {
             inventoryMetrics.setAnnualDemand(0.0);
             inventoryMetrics.setAvgDailyDemand(0.0);    
             inventoryMetrics.setLastCalculatedAt(new Date());
-            inventoryMetrics.setStockKg(0.0);             
-            inventoryMetricsRepository.save(inventoryMetrics);
+            inventoryMetrics.setStockKg(0.0);
+            metricsToSave.add(inventoryMetrics);
         }
+
+        productRepository.saveAll(productsToSave);
+        inventoryMetricsRepository.saveAll(metricsToSave);
         return ResponseEntity.ok(null);
     }
     private Map<String, Double> getAvgKgPriceMapByAnalyticsKey() {
@@ -101,10 +115,11 @@ public class InventoryMetricsService {
 
     private ResponseEntity<Void> setAvgKgPriceToInventoryMetrics() {
         Map<String, Double> avgKgPriceMapByAnalyticsKey = getAvgKgPriceMapByAnalyticsKey();
-        for(InventoryMetrics inventoryMetric : inventoryMetricsRepository.findAll()) {
+        List<InventoryMetrics> allMetrics = inventoryMetricsRepository.findAll();
+        for(InventoryMetrics inventoryMetric : allMetrics) {
             inventoryMetric.setAvgKgPrice(avgKgPriceMapByAnalyticsKey.get(inventoryMetric.getAnalyticsKey()));
-            inventoryMetricsRepository.save(inventoryMetric);
         }
+        inventoryMetricsRepository.saveAll(allMetrics);
         return ResponseEntity.ok(null);
     }
     /**
@@ -166,6 +181,11 @@ public class InventoryMetricsService {
             }
         }
 
+        // N+1 önleme: tüm metrics'i tek sorguda map olarak yükle
+        Map<String, InventoryMetrics> metricsMap = inventoryMetricsRepository.findAll().stream()
+            .collect(java.util.stream.Collectors.toMap(InventoryMetrics::getAnalyticsKey, m -> m));
+
+        List<InventoryMetrics> metricsToSave = new java.util.ArrayList<>();
         for (Map.Entry<String, DemandAggregationData> entry : aggregationMap.entrySet()) {
             String analyticsKey = entry.getKey();
             DemandAggregationData data = entry.getValue();
@@ -179,14 +199,15 @@ public class InventoryMetricsService {
             double dailyDemand = data.totalSales / days;
             double annualDemand = dailyDemand * 365;
 
-            InventoryMetrics metrics = inventoryMetricsRepository.findByAnalyticsKey(analyticsKey);
+            InventoryMetrics metrics = metricsMap.get(analyticsKey);
             if (metrics != null) {
                 metrics.setAvgDailyDemand(dailyDemand);
                 metrics.setAnnualDemand(annualDemand);
                 metrics.setLastCalculatedAt(today);
-                inventoryMetricsRepository.save(metrics);
+                metricsToSave.add(metrics);
             }
         }
+        inventoryMetricsRepository.saveAll(metricsToSave);
 
         return ResponseEntity.ok(null);
     }
@@ -222,30 +243,30 @@ public class InventoryMetricsService {
         }
     }
 
-    private void calculateEOQ(InventoryMetrics inventoryMetrics) {
-        InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
-        Double eoq = Math.sqrt((2 * inventoryMetrics.getAnnualDemand() * inventoryConfig.getDefaultOrderingCost()) / (inventoryConfig.getHoldingRate() * inventoryMetrics.getAvgDailyDemand()));
+    private void calculateEOQ(InventoryMetrics inventoryMetrics, InventoryConfig inventoryConfig) {
+        Double eoq = Math.sqrt((2 * inventoryMetrics.getAnnualDemand() * inventoryConfig.getDefaultOrderingCost()) / (inventoryConfig.getHoldingRate() * inventoryMetrics.getAvgKgPrice()));
         inventoryMetrics.setEoq(eoq);
     }
 
     private void calculateEOQAllInventoryMetrics() {
+        InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
         List<InventoryMetrics> inventoryMetrics = inventoryMetricsRepository.findAll();
         for(InventoryMetrics inventoryMetric : inventoryMetrics) {
-            calculateEOQ(inventoryMetric);
-            inventoryMetricsRepository.save(inventoryMetric);
+            calculateEOQ(inventoryMetric, inventoryConfig);
         }
+        inventoryMetricsRepository.saveAll(inventoryMetrics);
     }
-    private void calculateReorderPoint(InventoryMetrics inventoryMetrics) {
-        InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
+    private void calculateReorderPoint(InventoryMetrics inventoryMetrics, InventoryConfig inventoryConfig) {
         Double reorderPoint = inventoryMetrics.getAvgDailyDemand() * inventoryConfig.getReorderDays();
         inventoryMetrics.setReorderPoint(reorderPoint);
     }
     private void calculateReorderPointAllInventoryMetrics() {
+        InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
         List<InventoryMetrics> inventoryMetrics = inventoryMetricsRepository.findAll();
         for(InventoryMetrics inventoryMetric : inventoryMetrics) {
-            calculateReorderPoint(inventoryMetric);
-            inventoryMetricsRepository.save(inventoryMetric);
+            calculateReorderPoint(inventoryMetric, inventoryConfig);
         }
+        inventoryMetricsRepository.saveAll(inventoryMetrics);
     }
 
     private void calculateAnnualValue(InventoryMetrics inventoryMetrics) {
@@ -287,9 +308,8 @@ public class InventoryMetricsService {
                 m.setAbcClass("B");
             else
                 m.setAbcClass("C");
-    
-            inventoryMetricsRepository.save(m);
         }
+        inventoryMetricsRepository.saveAll(metrics);
     }
 
     private void clearUnnecessaryInventoryMetrics() {
@@ -300,11 +320,10 @@ public class InventoryMetricsService {
                 .map(Product::getAnalyticsKey)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        for (InventoryMetrics inventoryMetric : inventoryMetrics) {
-            if (!existingAnalyticsKeys.contains(inventoryMetric.getAnalyticsKey())) {
-                inventoryMetricsRepository.delete(inventoryMetric);
-            }
-        }
+        List<InventoryMetrics> toDelete = inventoryMetrics.stream()
+            .filter(m -> !existingAnalyticsKeys.contains(m.getAnalyticsKey()))
+            .collect(Collectors.toList());
+        inventoryMetricsRepository.deleteAll(toDelete);
     }
 
     public ResponseEntity<Void> calculateAllInventoryMetrics() {
@@ -312,15 +331,24 @@ public class InventoryMetricsService {
         clearUnnecessaryInventoryMetrics();
         calculateDemandAggregation();
         setAvgKgPriceToInventoryMetrics();
+        InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
         List<InventoryMetrics> inventoryMetrics = inventoryMetricsRepository.findAll();
+
+        // N+1 önleme: tüm product ağırlıklarını tek sorguda analyticsKey bazında topla
+        Map<String, Double> stockKgByKey = productRepository.findAll().stream()
+            .filter(p -> p.getAnalyticsKey() != null)
+            .collect(Collectors.groupingBy(Product::getAnalyticsKey,
+                Collectors.summingDouble(Product::getWeight)));
+
+        Date now = new Date();
         for(InventoryMetrics inventoryMetric : inventoryMetrics) {
-            calculateEOQ(inventoryMetric);
-            calculateReorderPoint(inventoryMetric);
+            calculateEOQ(inventoryMetric, inventoryConfig);
+            calculateReorderPoint(inventoryMetric, inventoryConfig);
             calculateAnnualValue(inventoryMetric);
-            calculateStockKg(inventoryMetric);
-            inventoryMetric.setLastCalculatedAt(new Date());
-            inventoryMetricsRepository.save(inventoryMetric);
+            inventoryMetric.setStockKg(stockKgByKey.getOrDefault(inventoryMetric.getAnalyticsKey(), 0.0));
+            inventoryMetric.setLastCalculatedAt(now);
         }
+        inventoryMetricsRepository.saveAll(inventoryMetrics);
         calculateABCClassification();
         return ResponseEntity.ok(null);
     }
