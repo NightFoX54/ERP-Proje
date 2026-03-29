@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.erp.erpproject.dto.AddStockRequestDto;
 import com.erp.erpproject.dto.ProductCategoryDto;
 import com.erp.erpproject.model.Product;
 import com.erp.erpproject.model.ProductCategories;
@@ -151,5 +152,49 @@ public class StockService {
             throw new RuntimeException("Product category not found");
         }
         return productRepository.findAllByProductCategoryIdAndDiameter(id, diameter);
+    }
+
+    public ResponseEntity<Product> addStock(String id, AddStockRequestDto request) {
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+        ProductCategories productCategory = productCategoriesRepository.findById(product.getProductCategoryId()).get();
+        if (!productCategory.getBranchId().equals(SecurityUtil.getCurrentBranchId()) && !SecurityUtil.isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+
+        double addedWeight = request.getAddedWeight() != null ? request.getAddedWeight() : 0.0;
+        int addedStock = request.getAddedStock() != null ? request.getAddedStock() : 0;
+
+        double currentWeight = product.getWeight() != null ? product.getWeight() : 0.0;
+        double currentPurchaseWeight = product.getPurchaseWeight() != null ? product.getPurchaseWeight() : 0.0;
+        int currentStock = product.getStock() != null ? product.getStock() : 0;
+        int currentPurchaseStock = product.getPurchaseStock() != null ? product.getPurchaseStock() : 0;
+        double currentPurchasePrice = product.getPurchasePrice() != null ? product.getPurchasePrice() : 0.0;
+
+        product.setWeight(currentWeight + addedWeight);
+        product.setPurchaseWeight(currentPurchaseWeight + addedWeight);
+        product.setStock(currentStock + addedStock);
+        product.setPurchaseStock(currentPurchaseStock + addedStock);
+
+        double newPurchaseWeight = currentPurchaseWeight + addedWeight;
+
+        if (request.getTotalPurchasePrice() != null) {
+            double newPurchasePrice = currentPurchasePrice + request.getTotalPurchasePrice();
+            product.setPurchasePrice(newPurchasePrice);
+            if (newPurchaseWeight > 0) {
+                product.setKgPrice(newPurchasePrice / newPurchaseWeight);
+            }
+        } else if (request.getKgPrice() != null) {
+            double addedTotalPrice = request.getKgPrice() * addedWeight;
+            double newPurchasePrice = currentPurchasePrice + addedTotalPrice;
+            product.setPurchasePrice(newPurchasePrice);
+            if (newPurchaseWeight > 0) {
+                product.setKgPrice(newPurchasePrice / newPurchaseWeight);
+            }
+        }
+
+        return ResponseEntity.ok(productRepository.save(product));
     }
 }

@@ -9,6 +9,7 @@ import Loading from '../components/Loading';
 import ProductModal from '../components/ProductModal';
 import ProductCategoryModal from '../components/ProductCategoryModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import AddStockModal from '../components/AddStockModal';
 import { filterFixedFields, translateFieldName, getFieldType } from '../utils/fieldTranslations';
 
 const StockManagement = () => {
@@ -37,8 +38,16 @@ const StockManagement = () => {
   const [productToDelete, setProductToDelete] = useState(null);
   const [deleteProductLoading, setDeleteProductLoading] = useState(false);
 
+  // Add stock modal state
+  const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [addStockProduct, setAddStockProduct] = useState(null);
+
+  // Product types (boru tespiti için)
+  const [productTypes, setProductTypes] = useState([]);
+
   useEffect(() => {
     fetchBranches();
+    fetchProductTypes();
   }, []);
 
   useEffect(() => {
@@ -55,6 +64,15 @@ const StockManagement = () => {
       setProducts([]);
     }
   }, [selectedCategory]);
+
+  const fetchProductTypes = async () => {
+    try {
+      const data = await stockService.getProductTypes();
+      setProductTypes(data || []);
+    } catch (error) {
+      console.error('Error fetching product types:', error);
+    }
+  };
 
   const fetchBranches = async () => {
     try {
@@ -242,6 +260,23 @@ const StockManagement = () => {
   };
 
   const canManage = canManageStock(selectedBranchId);
+
+  const isBoruCategory = () => {
+    if (!categoryDetails?.productTypeId || productTypes.length === 0) return false;
+    const pt = productTypes.find(t => t.id === categoryDetails.productTypeId);
+    return pt?.name?.toLowerCase() === 'boru';
+  };
+
+  const handleAddStockClick = (product) => {
+    setAddStockProduct(product);
+    setShowAddStockModal(true);
+  };
+
+  const handleAddStockSave = () => {
+    setShowAddStockModal(false);
+    setAddStockProduct(null);
+    fetchCategoryDetails();
+  };
 
   if (loading) {
     return (
@@ -584,6 +619,16 @@ const StockManagement = () => {
                                 {canManage && (
                                   <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div className="flex items-center justify-end space-x-2">
+                                      {isBoruCategory() && (
+                                        <button
+                                          onClick={() => handleAddStockClick(product)}
+                                          className="px-2 py-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all duration-200 flex items-center gap-1"
+                                          title="Stok Ekle"
+                                        >
+                                          <FiPlus className="text-sm" />
+                                          Stok Ekle
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() => handleEditProduct(product)}
                                         className="p-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-all duration-200"
@@ -660,6 +705,18 @@ const StockManagement = () => {
           confirmButtonClass="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           isLoading={deleteLoading}
         />
+
+        {/* Add Stock Modal */}
+        {showAddStockModal && addStockProduct && (
+          <AddStockModal
+            product={addStockProduct}
+            onClose={() => {
+              setShowAddStockModal(false);
+              setAddStockProduct(null);
+            }}
+            onSave={handleAddStockSave}
+          />
+        )}
 
         {/* Delete Product Confirmation Modal */}
         <ConfirmationModal

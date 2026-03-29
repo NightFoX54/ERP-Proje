@@ -22,6 +22,7 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
   const [extraFields, setExtraFields] = useState({});
   const [productTypes, setProductTypes] = useState([]);
   const [isProductTypeDolu, setIsProductTypeDolu] = useState(false);
+  const [isProductTypeBoru, setIsProductTypeBoru] = useState(false);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -38,18 +39,21 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
   }, []);
 
   useEffect(() => {
-    // Ürün tipi "dolu" mu kontrol et
+    // Ürün tipi kontrolü
     if (category?.productTypeId && productTypes.length > 0) {
       const productType = productTypes.find(pt => pt.id === category.productTypeId);
-      const isDolu = productType?.name?.toLowerCase() === 'dolu';
+      const typeName = productType?.name?.toLowerCase();
+      const isDolu = typeName === 'dolu';
+      const isBoru = typeName === 'boru';
       setIsProductTypeDolu(isDolu);
+      setIsProductTypeBoru(isBoru);
       
-      // Eğer "dolu" ise ve yeni ürün ekleniyorsa, stock'u 1 olarak ayarla
       if (isDolu && !product) {
         setFormData(prev => ({ ...prev, stock: '1' }));
       }
     } else {
       setIsProductTypeDolu(false);
+      setIsProductTypeBoru(false);
     }
   }, [category?.productTypeId, productTypes, product]);
 
@@ -290,11 +294,13 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Çap (mm) <span className="text-red-500">*</span>
+                {isEdit && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
               </label>
               <input
                 type="number"
                 value={formData.diameter}
                 onChange={(e) => {
+                  if (isEdit) return;
                   setFormData({ ...formData, diameter: e.target.value });
                   if (errors.diameter) {
                     setErrors(prev => {
@@ -304,8 +310,9 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                     });
                   }
                 }}
-                className={`input-field ${errors.diameter ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                className={`input-field ${errors.diameter ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${isEdit ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                 step="0.1"
+                disabled={isEdit}
               />
               {errors.diameter && (
                 <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
@@ -334,18 +341,21 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               const fieldType = getFieldType(fieldValue);
               const required = isFieldRequired(fieldValue);
               
+              const innerDiameterDisabled = isEdit && isProductTypeBoru;
               return (
                 <div key={innerDiameterKey}>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {translateFieldName(innerDiameterKey)} (mm)
                     {required && <span className="text-red-500 ml-1">*</span>}
+                    {innerDiameterDisabled && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
                   </label>
                   <input
                     type={getInputType(fieldValue)}
                     value={extraFields[innerDiameterKey] || ''}
-                    onChange={(e) => handleExtraFieldChange(innerDiameterKey, e.target.value)}
-                    className={`input-field ${errors[`extra_${innerDiameterKey}`] ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                    onChange={(e) => { if (!innerDiameterDisabled) handleExtraFieldChange(innerDiameterKey, e.target.value); }}
+                    className={`input-field ${errors[`extra_${innerDiameterKey}`] ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${innerDiameterDisabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                     step={fieldType === 'double' ? '0.01' : '1'}
+                    disabled={innerDiameterDisabled}
                   />
                   {errors[`extra_${innerDiameterKey}`] && (
                     <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
@@ -360,11 +370,13 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Uzunluk (mm) <span className="text-red-500">*</span>
+                {isEdit && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
               </label>
               <input
                 type="number"
                 value={formData.length}
                 onChange={(e) => {
+                  if (isEdit) return;
                   setFormData({ ...formData, length: e.target.value });
                   if (errors.length) {
                     setErrors(prev => {
@@ -374,8 +386,9 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                     });
                   }
                 }}
-                className={`input-field ${errors.length ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                className={`input-field ${errors.length ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${isEdit ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                 step="0.01"
+                disabled={isEdit}
               />
               {errors.length && (
                 <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
@@ -388,11 +401,13 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Ağırlık (kg) <span className="text-red-500">*</span>
+                {isEdit && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
               </label>
               <input
                 type="number"
                 value={formData.weight}
                 onChange={(e) => {
+                  if (isEdit) return;
                   setFormData({ ...formData, weight: e.target.value });
                   if (errors.weight) {
                     setErrors(prev => {
@@ -402,8 +417,9 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                     });
                   }
                 }}
-                className={`input-field ${errors.weight ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                className={`input-field ${errors.weight ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${isEdit ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                 step="0.01"
+                disabled={isEdit}
               />
               {errors.weight && (
                 <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
@@ -417,11 +433,13 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Stok Miktarı <span className="text-red-500">*</span>
+                  {isEdit && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
                 </label>
                 <input
                   type="number"
                   value={formData.stock}
                   onChange={(e) => {
+                    if (isEdit) return;
                     setFormData({ ...formData, stock: e.target.value });
                     if (errors.stock) {
                       setErrors(prev => {
@@ -431,9 +449,10 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                       });
                     }
                   }}
-                  className={`input-field ${errors.stock ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  className={`input-field ${errors.stock ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${isEdit ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                   step="1"
                   min="0"
+                  disabled={isEdit}
                 />
                 {errors.stock && (
                   <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
@@ -537,15 +556,13 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
               </>
             )}
 
-            {/* Extra Fields from Category - Sabit alanları ve et kalınlığı hariç tut (et kalınlığı zaten yukarıda gösterildi) */}
+            {/* Extra Fields from Category - Sabit alanları ve iç çap hariç tut (iç çap zaten yukarıda gösterildi) */}
             {category?.finalFields && Object.keys(filterFixedFields(category.finalFields)).length > 0 && 
               Object.entries(category.finalFields)
                 .filter(([key]) => {
-                  // Sabit alanları filtrele
                   if (['weight', 'purchasePrice', 'purchaseKgPrice', 'kgPrice', 'diameter', 'length', 'stock'].includes(key)) {
                     return false;
                   }
-                  // İç çap alanını filtrele (zaten yukarıda gösterildi)
                   const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
                   const isInnerDiameter = normalizedKey.includes('iccap') || 
                                           normalizedKey.includes('innerdiameter') ||
@@ -555,19 +572,28 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                 .map(([key, fieldValue]) => {
                   const fieldType = getFieldType(fieldValue);
                   const required = isFieldRequired(fieldValue);
+
+                  // Boru tipinde "et kalınlığı" alanı düzenlenemez
+                  const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+                  const isEtKalinligi = normalizedKey.includes('etkalinligi') ||
+                                        normalizedKey.includes('etkalınlığı') ||
+                                        normalizedKey.includes('wallthickness');
+                  const fieldDisabled = isEdit && isProductTypeBoru && isEtKalinligi;
                   
                   return (
                     <div key={key}>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {translateFieldName(key)}
                         {required && <span className="text-red-500 ml-1">*</span>}
+                        {fieldDisabled && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
                       </label>
                       <input
                         type={getInputType(fieldValue)}
                         value={extraFields[key] || ''}
-                        onChange={(e) => handleExtraFieldChange(key, e.target.value)}
-                        className={`input-field ${errors[`extra_${key}`] ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        onChange={(e) => { if (!fieldDisabled) handleExtraFieldChange(key, e.target.value); }}
+                        className={`input-field ${errors[`extra_${key}`] ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${fieldDisabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                         step={fieldType === 'double' ? '0.01' : '1'}
+                        disabled={fieldDisabled}
                       />
                       {errors[`extra_${key}`] && (
                         <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">

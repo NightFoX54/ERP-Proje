@@ -48,5 +48,10 @@ export const stockService = {
     const response = await api.get(`/api/stock/product-categories/${productCategoryId}/diameter/${diameter}`);
     return response.data;
   },
+
+  addStock: async (id, data) => {
+    const response = await api.post(`/api/stock/${id}/add-stock`, data);
+    return response.data;
+  },
 };
 

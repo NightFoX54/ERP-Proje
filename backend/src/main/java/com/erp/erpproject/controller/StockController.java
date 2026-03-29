@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.erp.erpproject.dto.AddStockRequestDto;
 import com.erp.erpproject.dto.ProductCategoryDto;
 import com.erp.erpproject.model.Product;
 import com.erp.erpproject.model.ProductCategories;
@@ -73,5 +74,10 @@ public class StockController {
     @GetMapping("/product-categories/{id}/diameter/{diameter}")
     public List<Product> getProductsByProductCategoryIdAndDiameter(@PathVariable String id, @PathVariable Double diameter) {
         return stockService.getProductsByProductCategoryIdAndDiameter(id, diameter);
+    }
+
+    @PostMapping("/{id}/add-stock")
+    public ResponseEntity<Product> addStock(@PathVariable String id, @RequestBody AddStockRequestDto request) {
+        return stockService.addStock(id, request);
     }
 }
