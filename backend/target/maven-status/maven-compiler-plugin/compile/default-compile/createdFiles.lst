@@ -53,6 +53,7 @@ com\erp\erpproject\repository\InventoryMetricsRepository.class
 com\erp\erpproject\service\BranchService.class
 com\erp\erpproject\service\InventoryMetricsService.class
 com\erp\erpproject\config\SecurityConfig.class
+com\erp\erpproject\dto\AddStockRequestDto.class
 com\erp\erpproject\model\Orders$OrderStatus.class
 com\erp\erpproject\controller\InventoryMetricsController.class
 com\erp\erpproject\dto\ProductCategoryDto.class

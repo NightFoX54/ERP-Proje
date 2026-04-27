@@ -118,26 +118,34 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
   const validate = () => {
     const newErrors = {};
 
-    // Zorunlu alanlar - number alanlar için güvenli kontrol
-    const diameterValue = formData.diameter?.toString().trim();
-    if (!diameterValue || diameterValue === '') {
-      newErrors.diameter = 'Lütfen bu alanı doldurun';
-    }
+    // Düzenleme modunda yalnızca düzenlenebilen alanları doğrula
+    if (!isEdit) {
+      const diameterValue = formData.diameter?.toString().trim();
+      if (!diameterValue || diameterValue === '') {
+        newErrors.diameter = 'Lütfen bu alanı doldurun';
+      }
 
-    const lengthValue = formData.length?.toString().trim();
-    if (!lengthValue || lengthValue === '') {
-      newErrors.length = 'Lütfen bu alanı doldurun';
-    }
+      const lengthValue = formData.length?.toString().trim();
+      if (!lengthValue || lengthValue === '') {
+        newErrors.length = 'Lütfen bu alanı doldurun';
+      }
 
-    const weightValue = formData.weight?.toString().trim();
-    if (!weightValue || weightValue === '') {
-      newErrors.weight = 'Lütfen bu alanı doldurun';
-    }
+      const weightValue = formData.weight?.toString().trim();
+      if (!weightValue || weightValue === '') {
+        newErrors.weight = 'Lütfen bu alanı doldurun';
+      }
 
-    if (!isProductTypeDolu) {
-      const stockValue = formData.stock?.toString().trim();
-      if (!stockValue || stockValue === '') {
-        newErrors.stock = 'Lütfen bu alanı doldurun';
+      if (!isProductTypeDolu) {
+        const stockValue = formData.stock?.toString().trim();
+        if (!stockValue || stockValue === '') {
+          newErrors.stock = 'Lütfen bu alanı doldurun';
+        }
+      }
+    } else if (isProductTypeBoru) {
+      // Boru düzenlemede sadece uzunluk düzenlenebilir
+      const lengthValue = formData.length?.toString().trim();
+      if (!lengthValue || lengthValue === '') {
+        newErrors.length = 'Lütfen bu alanı doldurun';
       }
     }
 
@@ -161,7 +169,21 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
     if (category?.finalFields) {
       const filteredFields = filterFixedFields(category.finalFields);
       Object.entries(filteredFields).forEach(([key, fieldValue]) => {
-        const required = isFieldRequired(fieldValue);
+          const required = isFieldRequired(fieldValue);
+          const normalizedKey = key.toLowerCase().replace(/[_\s]/g, '');
+          const isInnerDiameterField = normalizedKey.includes('iccap') || 
+                                      normalizedKey.includes('innerdiameter') ||
+                                      normalizedKey.includes('iççap');
+          const isEtKalinligi = normalizedKey.includes('etkalinligi') ||
+                                normalizedKey.includes('etkalınlığı') ||
+                                normalizedKey.includes('wallthickness');
+          const isDisabledInEdit = isEdit && isProductTypeBoru && (isInnerDiameterField || isEtKalinligi);
+
+          // Düzenleme modunda kilitli alanlar zorunlu kontrolüne takılmasın
+          if (isDisabledInEdit) {
+            return;
+          }
+
         if (required) {
           const extraFieldValue = extraFields[key];
           const fieldType = getFieldType(fieldValue);
@@ -368,15 +390,19 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
             })()}
 
             <div>
+              {(() => {
+                const lengthDisabled = isEdit && !isProductTypeBoru;
+                return (
+                  <>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Uzunluk (mm) <span className="text-red-500">*</span>
-                {isEdit && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
+                {lengthDisabled && <span className="text-gray-400 text-xs ml-2">(düzenlenemez)</span>}
               </label>
               <input
                 type="number"
                 value={formData.length}
                 onChange={(e) => {
-                  if (isEdit) return;
+                  if (lengthDisabled) return;
                   setFormData({ ...formData, length: e.target.value });
                   if (errors.length) {
                     setErrors(prev => {
@@ -386,9 +412,9 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                     });
                   }
                 }}
-                className={`input-field ${errors.length ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${isEdit ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+                className={`input-field ${errors.length ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''} ${lengthDisabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                 step="0.01"
-                disabled={isEdit}
+                disabled={lengthDisabled}
               />
               {errors.length && (
                 <div className="mt-2 flex items-start gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg shadow-sm">
@@ -396,6 +422,9 @@ const ProductModal = ({ category, product, canManage, onClose, onSave }) => {
                   <p className="text-sm text-gray-800">{errors.length}</p>
                 </div>
               )}
+                  </>
+                );
+              })()}
             </div>
 
             <div>
