@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { isTokenExpired } from './tokenUtils';
 
-const API_BASE_URL = 'https://erp-proje-production-52ba.up.railway.app';
+const API_BASE_URL = 'https://erp-proje-production-239b.up.railway.app';
 
 //const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
