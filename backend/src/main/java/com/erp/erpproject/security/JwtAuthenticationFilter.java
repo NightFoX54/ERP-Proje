@@ -77,9 +77,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    logger.debug("JWT validated for user=" + username + " accountType=" + accountType);
                 }
             }
-            logger.info("JWT validation successful");
         } catch (Exception e) {
             // Token is invalid, continue without authentication
             logger.error("JWT validation failed", e);
