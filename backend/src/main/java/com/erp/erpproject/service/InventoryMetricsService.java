@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.erp.erpproject.model.InventoryConfig;
 import com.erp.erpproject.model.InventoryMetrics;
 import com.erp.erpproject.model.Orders;
@@ -22,6 +24,7 @@ import com.erp.erpproject.repository.InventoryMetricsRepository;
 import com.erp.erpproject.repository.OrdersRepository;
 import com.erp.erpproject.repository.ProductRepository;
 
+@Slf4j
 @Service
 public class InventoryMetricsService {
     private final InventoryMetricsRepository inventoryMetricsRepository;
@@ -72,9 +75,16 @@ public class InventoryMetricsService {
 
         for(Product product : products){
             if(product.getAnalyticsKey() == null){
+                if (product.getDiameter() == null) {
+                    log.warn(
+                            "initializeInventoryMetrics: ürün atlandı (analyticsKey üretilemez, diameter null) productId={}",
+                            product.getId());
+                    continue;
+                }
                 String innerDiameter = null;
-                if(product.getFields().containsKey("iç çap")){
-                    innerDiameter = product.getFields().get("iç çap").toString();
+                java.util.Map<String, Object> fields = product.getFields();
+                if (fields != null && fields.containsKey("iç çap") && fields.get("iç çap") != null) {
+                    innerDiameter = fields.get("iç çap").toString();
                 }
                 product.setAnalyticsKey(product.getProductCategoryId() + "-" + product.getDiameter().toString() + "-" + innerDiameter);
                 productsToSave.add(product);
@@ -87,8 +97,9 @@ public class InventoryMetricsService {
             inventoryMetrics.setAnalyticsKey(product.getAnalyticsKey());
             inventoryMetrics.setProductCategoryId(product.getProductCategoryId());
             inventoryMetrics.setDiameter(product.getDiameter());
-            if(product.getFields().containsKey("iç çap")){
-                inventoryMetrics.setInnerDiameter(Double.parseDouble(product.getFields().get("iç çap").toString()));
+            java.util.Map<String, Object> pf = product.getFields();
+            if(pf != null && pf.containsKey("iç çap") && pf.get("iç çap") != null){
+                inventoryMetrics.setInnerDiameter(Double.parseDouble(pf.get("iç çap").toString()));
             }
             inventoryMetrics.setEoq(0.0);
             inventoryMetrics.setReorderPoint(0.0);
@@ -128,6 +139,15 @@ public class InventoryMetricsService {
      * group by analyticsKey, sum(totalSoldWeight), dailyDemand = totalSales / days, annualDemand = dailyDemand * 365
      */
     public ResponseEntity<Void> calculateDemandAggregation() {
+        try {
+            return calculateDemandAggregationInternal();
+        } catch (Exception e) {
+            log.error("calculateDemandAggregation: beklenmeyen hata — {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    private ResponseEntity<Void> calculateDemandAggregationInternal() {
         List<OrderStatus> includedStatuses = List.of(OrderStatus.Hazır, OrderStatus.Çıktı);
         List<Orders> orders = ordersRepository.findAllByOrderStatusInAndOrderGivenDateAfter(includedStatuses, Date.from(Instant.now().minus(365, ChronoUnit.DAYS)));
 
@@ -135,7 +155,8 @@ public class InventoryMetricsService {
         Map<String, DemandAggregationData> aggregationMap = new java.util.HashMap<>();
         Map<String, Product> productMap =
             productRepository.findAll().stream()
-            .collect(java.util.stream.Collectors.toMap(Product::getId, p -> p));
+            .filter(p -> p.getId() != null)
+            .collect(java.util.stream.Collectors.toMap(Product::getId, p -> p, (a, b) -> b));
 
         
 
@@ -183,7 +204,8 @@ public class InventoryMetricsService {
 
         // N+1 önleme: tüm metrics'i tek sorguda map olarak yükle
         Map<String, InventoryMetrics> metricsMap = inventoryMetricsRepository.findAll().stream()
-            .collect(java.util.stream.Collectors.toMap(InventoryMetrics::getAnalyticsKey, m -> m));
+            .filter(m -> m.getAnalyticsKey() != null)
+            .collect(java.util.stream.Collectors.toMap(InventoryMetrics::getAnalyticsKey, m -> m, (a, b) -> b));
 
         List<InventoryMetrics> metricsToSave = new java.util.ArrayList<>();
         for (Map.Entry<String, DemandAggregationData> entry : aggregationMap.entrySet()) {
@@ -244,7 +266,14 @@ public class InventoryMetricsService {
     }
 
     private void calculateEOQ(InventoryMetrics inventoryMetrics, InventoryConfig inventoryConfig) {
-        Double eoq = Math.sqrt((2 * inventoryMetrics.getAnnualDemand() * inventoryConfig.getDefaultOrderingCost()) / (inventoryConfig.getHoldingRate() * inventoryMetrics.getAvgKgPrice()));
+        double annualDemand = inventoryMetrics.getAnnualDemand() != null ? inventoryMetrics.getAnnualDemand() : 0.0;
+        double avgKgPrice = inventoryMetrics.getAvgKgPrice() != null ? inventoryMetrics.getAvgKgPrice() : 0.0;
+        double denominator = inventoryConfig.getHoldingRate() * avgKgPrice;
+        if (denominator <= 0 || annualDemand <= 0) {
+            inventoryMetrics.setEoq(0.0);
+            return;
+        }
+        double eoq = Math.sqrt((2 * annualDemand * inventoryConfig.getDefaultOrderingCost()) / denominator);
         inventoryMetrics.setEoq(eoq);
     }
 
@@ -257,8 +286,8 @@ public class InventoryMetricsService {
         inventoryMetricsRepository.saveAll(inventoryMetrics);
     }
     private void calculateReorderPoint(InventoryMetrics inventoryMetrics, InventoryConfig inventoryConfig) {
-        Double reorderPoint = inventoryMetrics.getAvgDailyDemand() * inventoryConfig.getReorderDays();
-        inventoryMetrics.setReorderPoint(reorderPoint);
+        double avgDaily = inventoryMetrics.getAvgDailyDemand() != null ? inventoryMetrics.getAvgDailyDemand() : 0.0;
+        inventoryMetrics.setReorderPoint(avgDaily * inventoryConfig.getReorderDays());
     }
     private void calculateReorderPointAllInventoryMetrics() {
         InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
@@ -270,12 +299,16 @@ public class InventoryMetricsService {
     }
 
     private void calculateAnnualValue(InventoryMetrics inventoryMetrics) {
-        inventoryMetrics.setAnnualValue(inventoryMetrics.getAvgKgPrice() * inventoryMetrics.getAnnualDemand());
+        double avgKg = inventoryMetrics.getAvgKgPrice() != null ? inventoryMetrics.getAvgKgPrice() : 0.0;
+        double annual = inventoryMetrics.getAnnualDemand() != null ? inventoryMetrics.getAnnualDemand() : 0.0;
+        inventoryMetrics.setAnnualValue(avgKg * annual);
     }
 
     private void calculateStockKg(InventoryMetrics inventoryMetrics){
         List<Product> products = productRepository.findAllByAnalyticsKey(inventoryMetrics.getAnalyticsKey());
-        Double stockKg = products.stream().mapToDouble(Product::getWeight).sum();
+        double stockKg = products.stream()
+                .mapToDouble(p -> p.getWeight() != null ? p.getWeight() : 0.0)
+                .sum();
         inventoryMetrics.setStockKg(stockKg);
     }
 
@@ -287,19 +320,29 @@ public class InventoryMetricsService {
     
         // sort descending
         metrics.sort(
-            java.util.Comparator.comparingDouble(
-                InventoryMetrics::getAnnualValue
+            java.util.Comparator.<InventoryMetrics>comparingDouble(
+                m -> m.getAnnualValue() != null ? m.getAnnualValue() : 0.0
             ).reversed()
         );
     
         double totalValue = metrics.stream()
-            .mapToDouble(InventoryMetrics::getAnnualValue)
+            .mapToDouble(m -> m.getAnnualValue() != null ? m.getAnnualValue() : 0.0)
             .sum();
+
+        if (totalValue <= 0) {
+            for (InventoryMetrics m : metrics) {
+                m.setAbcClass("C");
+            }
+            inventoryMetricsRepository.saveAll(metrics);
+            log.info("calculateABCClassification: toplam annualValue=0, tüm kalemler C sınıfına atandı ({} kayıt)", metrics.size());
+            return;
+        }
     
         double cumulative = 0;
     
         for (InventoryMetrics m : metrics) {
-            cumulative += m.getAnnualValue();
+            double annualVal = m.getAnnualValue() != null ? m.getAnnualValue() : 0.0;
+            cumulative += annualVal;
             double ratio = cumulative / totalValue;
     
             if (ratio <= 0.7)
@@ -327,30 +370,52 @@ public class InventoryMetricsService {
     }
 
     public ResponseEntity<Void> calculateAllInventoryMetrics() {
-        initializeInventoryMetrics();
-        clearUnnecessaryInventoryMetrics();
-        calculateDemandAggregation();
-        setAvgKgPriceToInventoryMetrics();
-        InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
-        List<InventoryMetrics> inventoryMetrics = inventoryMetricsRepository.findAll();
+        String phase = "start";
+        try {
+            log.info("calculateAllInventoryMetrics: başladı");
+            phase = "initializeInventoryMetrics";
+            initializeInventoryMetrics();
+            phase = "clearUnnecessaryInventoryMetrics";
+            clearUnnecessaryInventoryMetrics();
+            phase = "calculateDemandAggregation";
+            calculateDemandAggregation();
+            phase = "setAvgKgPriceToInventoryMetrics";
+            setAvgKgPriceToInventoryMetrics();
+            phase = "loadInventoryConfig";
+            InventoryConfig inventoryConfig = inventoryConfigRepository.findAll().get(0);
+            phase = "loadAllInventoryMetrics";
+            List<InventoryMetrics> inventoryMetrics = inventoryMetricsRepository.findAll();
 
-        // N+1 önleme: tüm product ağırlıklarını tek sorguda analyticsKey bazında topla
-        Map<String, Double> stockKgByKey = productRepository.findAll().stream()
-            .filter(p -> p.getAnalyticsKey() != null)
-            .collect(Collectors.groupingBy(Product::getAnalyticsKey,
-                Collectors.summingDouble(Product::getWeight)));
+            // N+1 önleme: tüm product ağırlıklarını tek sorguda analyticsKey bazında topla
+            phase = "aggregateStockKgByKey";
+            Map<String, Double> stockKgByKey = productRepository.findAll().stream()
+                .filter(p -> p.getAnalyticsKey() != null)
+                .collect(Collectors.groupingBy(Product::getAnalyticsKey,
+                    Collectors.summingDouble(p -> p.getWeight() != null ? p.getWeight() : 0.0)));
 
-        Date now = new Date();
-        for(InventoryMetrics inventoryMetric : inventoryMetrics) {
-            calculateEOQ(inventoryMetric, inventoryConfig);
-            calculateReorderPoint(inventoryMetric, inventoryConfig);
-            calculateAnnualValue(inventoryMetric);
-            inventoryMetric.setStockKg(stockKgByKey.getOrDefault(inventoryMetric.getAnalyticsKey(), 0.0));
-            inventoryMetric.setLastCalculatedAt(now);
+            Date now = new Date();
+            phase = "perMetricEoqRopAnnualStock";
+            for(InventoryMetrics inventoryMetric : inventoryMetrics) {
+                calculateEOQ(inventoryMetric, inventoryConfig);
+                calculateReorderPoint(inventoryMetric, inventoryConfig);
+                calculateAnnualValue(inventoryMetric);
+                inventoryMetric.setStockKg(stockKgByKey.getOrDefault(inventoryMetric.getAnalyticsKey(), 0.0));
+                inventoryMetric.setLastCalculatedAt(now);
+            }
+            phase = "saveAllInventoryMetrics";
+            inventoryMetricsRepository.saveAll(inventoryMetrics);
+            phase = "calculateABCClassification";
+            calculateABCClassification();
+            log.info("calculateAllInventoryMetrics: tamamlandı");
+            return ResponseEntity.ok(null);
+        } catch (Exception e) {
+            log.error(
+                    "calculateAllInventoryMetrics: HATA phase=[{}] message=[{}]",
+                    phase,
+                    e.getMessage(),
+                    e);
+            throw e;
         }
-        inventoryMetricsRepository.saveAll(inventoryMetrics);
-        calculateABCClassification();
-        return ResponseEntity.ok(null);
     }
 
 }
